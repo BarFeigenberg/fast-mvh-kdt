@@ -1,0 +1,3 @@
+[submodule "baselines/bridging-mvh-dr"]
+	path = baselines/bridging-mvh-dr
+	url = https://github.com/CRL-Technion/bridging-mvh-dr
