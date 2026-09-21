@@ -1,0 +1,22 @@
+# Master Research Roadmap: Fast MVH with K-d Tree Dominance Checking
+
+- [x] **Phase 0: Environment, Baselines & Golden Results**
+  - [x] Workspace scaffolding & safety guardrails in GEMINI.md
+  - [x] Theory documentation in docs/theory/
+  - [x] Evaluation skills (.agent/skills/)
+  - [x] Deep audit of Shahaf's codebase
+  - [x] Execute Maya's baseline on test instances and establish `benchmarks/golden_results/`
+- [ ] **Phase 1: Baseline Integration (Combine Maya & Shahaf)**
+  - [ ] Architectural interface design for integrating Shahaf's KD-Tree into Maya's path/frontier dominance checks
+  - [ ] Interactive code proposal & review
+  - [ ] Implementation and verification against Golden Results (100% bit-identical)
+- [ ] **Phase 2: Static KD-Tree on Heuristics (Roi's KD-CHOOSEH)**
+  - [ ] Implement static KD-Tree indexing truncated heuristic sets Tr(H(s))
+  - [ ] Aggregated pruning rules (N.min discard / N.max accept)
+  - [ ] Preserve lowest lexicographical index tie-breaking
+  - [ ] Verify Pareto optimality against Maya's baseline
+- [ ] **Phase 3: Empirical Comparison & Heuristic Exploration**
+  - [ ] Comprehensive benchmark sweeps (Maya's H baseline vs KD-CHOOSEH)
+  - [ ] Explore 'Local Ideal Point' heuristic variant
+- [ ] **Phase 4: Future Work**
+  - [ ] Extension of Shawn's Min-CTDC framework with MVH in state

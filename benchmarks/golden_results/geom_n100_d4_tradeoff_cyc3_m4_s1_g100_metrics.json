@@ -1,0 +1,20 @@
+{
+  "algorithm": "L_NAMOA_DR_MVH",
+  "source": 1,
+  "target": 100,
+  "num_solutions": 71,
+  "num_expansion": 158,
+  "num_generation": 337,
+  "num_full_dominance_check": 0,
+  "num_dr_dominance_check": 475,
+  "num_global_dominance_check": 337,
+  "runtime_s": 0.005,
+  "time_limit_reached": 0,
+  "num_good_fallback": 0,
+  "num_bad_fallback": 0,
+  "num_g_dominates_existing": 0,
+  "avg_truncated_size": 5.66667,
+  "avg_pareto_size": 10.5333,
+  "num_reinsertion": 25,
+  "num_active_states": 15
+}

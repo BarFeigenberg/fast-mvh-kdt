@@ -1,0 +1,23 @@
+{
+  "instance": "synthetic_graph",
+  "source": 43,
+  "target": 96,
+  "objectives": [1, 3, 4],
+  "num_objectives": 3,
+  "algorithm": "L_NAMOA_DR_MVH",
+  "num_solutions": 17,
+  "num_expansion": 72,
+  "num_generation": 427,
+  "num_full_dominance_check": 2,
+  "num_dr_dominance_check": 560,
+  "num_global_dominance_check": 427,
+  "num_good_fallback": 0,
+  "num_bad_fallback": 2,
+  "num_g_dominates_existing": 0,
+  "avg_truncated_size": 1.68571,
+  "avg_pareto_size": 2.05714,
+  "num_reinsertion": 58,
+  "num_active_states": 35,
+  "runtime_s": 0.001,
+  "time_limit_reached": false
+}
