@@ -22,6 +22,16 @@ include_directories(
 # Core library for Fast MVH with K-d Tree Dominance Checking
 add_library(fast_mvh_lib
     src/src/mvh_kdtree.cpp
+    src/src/solvers/l_namoa_kdt_chooseh.cpp
+    src/src/solvers/l_namoa_dr_mvh_kdt.cpp
+    baselines/bridging-mvh-dr/src/parser.cpp
+    baselines/bridging-mvh-dr/src/parsers/multi_valued_heuristic_parser.cpp
+    baselines/bridging-mvh-dr/src/data_structures/adjacency_matrix.cpp
+    baselines/bridging-mvh-dr/src/data_structures/apex_path_pair.cpp
+    baselines/bridging-mvh-dr/src/data_structures/map_queue.cpp
+    baselines/bridging-mvh-dr/src/data_structures/node.cpp
+    baselines/bridging-mvh-dr/src/multivalued_heuristic/apex_mvh.cpp
+    baselines/bridging-mvh-dr/src/solvers/apex.cpp
 )
 
 target_include_directories(fast_mvh_lib PUBLIC
@@ -36,11 +46,17 @@ add_executable(fast_mvh
 
 target_link_libraries(fast_mvh PRIVATE fast_mvh_lib)
 
+find_package(Boost COMPONENTS program_options log thread filesystem system QUIET)
+if(Boost_FOUND)
+    target_include_directories(fast_mvh_lib PUBLIC ${Boost_INCLUDE_DIRS})
+    target_link_libraries(fast_mvh_lib PUBLIC ${Boost_LIBRARIES})
+    target_link_libraries(fast_mvh PRIVATE ${Boost_LIBRARIES})
+endif()
+
 # Baseline inclusion (guarded by Boost availability)
 option(BUILD_BASELINES "Build baseline solvers from baselines/bridging-mvh-dr" ON)
 
 if(BUILD_BASELINES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/baselines/bridging-mvh-dr/CMakeLists.txt")
-    find_package(Boost COMPONENTS program_options log thread filesystem system QUIET)
     if(Boost_FOUND)
         message(STATUS "Boost found. Adding baselines/bridging-mvh-dr subdirectory.")
         if(MSVC)

@@ -6,17 +6,19 @@
   - [x] Evaluation skills (.agent/skills/)
   - [x] Deep audit of Shahaf's codebase
   - [x] Execute Maya's baseline on test instances and establish `benchmarks/golden_results/`
-- [ ] **Phase 1: Baseline Integration (Combine Maya & Shahaf)**
+- [x] **Phase 1: Isolated Ablation of Roi's KD-CHOOSEH**
+  - [x] Implement static $(M-1)$-d KD-Tree over $\operatorname{Tr}(H(s))$ in `src/include/fast_mvh/mvh_kdtree.h` and `src/src/mvh_kdtree.cpp`
+  - [x] Implement standalone solver `L_NAMOA_KDT_CHOOSEH` in `src/` with identical closed-set structures
+  - [x] Instrument `cmp_chooseh` in both Maya's linear baseline and Roi's KD-tree
+  - [x] Direct head-to-head A/B ablation benchmarks ($K \in \{10, \dots, 1000\}$, $M \in \{3, \dots, 8\}$)
+  - [x] Verify 100% bit-identical Pareto fronts and identical node expansion counts
+- [ ] **Phase 2: Baseline Integration (Combine Maya & Shahaf)**
   - [ ] Architectural interface design for integrating Shahaf's KD-Tree into Maya's path/frontier dominance checks
   - [ ] Interactive code proposal & review
   - [ ] Implementation and verification against Golden Results (100% bit-identical)
-- [ ] **Phase 2: Static KD-Tree on Heuristics (Roi's KD-CHOOSEH)**
-  - [ ] Implement static KD-Tree indexing truncated heuristic sets Tr(H(s))
-  - [ ] Aggregated pruning rules (N.min discard / N.max accept)
-  - [ ] Preserve lowest lexicographical index tie-breaking
-  - [ ] Verify Pareto optimality against Maya's baseline
-- [ ] **Phase 3: Empirical Comparison & Heuristic Exploration**
-  - [ ] Comprehensive benchmark sweeps (Maya's H baseline vs KD-CHOOSEH)
+- [ ] **Phase 3: Full Integration (Maya + Shahaf Frontier KD-Tree + Roi's KD-CHOOSEH)**
+  - [ ] Combine static heuristic KD-Tree with dynamic state-frontier KD-Tree
+  - [ ] Comprehensive benchmark sweeps (Maya's baseline vs full Fast MVH-KDT)
   - [ ] Explore 'Local Ideal Point' heuristic variant
 - [ ] **Phase 4: Future Work**
   - [ ] Extension of Shawn's Min-CTDC framework with MVH in state
