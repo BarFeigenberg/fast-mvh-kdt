@@ -25,6 +25,7 @@ StaticHeuristicKDTree::StaticHeuristicKDTree(
     // Reserve flat bounds to avoid reallocations
     all_min_bounds.resize(dim_);
     all_max_bounds.resize(dim_);
+    leaf_of_idx.resize(raw_heuristics_.size(), UINT32_MAX);
 
     build_tree(items, 0, 0);
 }
@@ -75,6 +76,7 @@ void StaticHeuristicKDTree::build_tree(
         node.first_elem_idx = static_cast<uint32_t>(leaf_items_.size());
         node.count = static_cast<uint32_t>(items.size());
         for (auto& item : items) {
+            leaf_of_idx[item.second] = node_idx;
             leaf_items_.push_back(std::move(item));
         }
         return;
@@ -108,6 +110,8 @@ void StaticHeuristicKDTree::build_tree(
     // Re-acquire node reference since emplace_back might have invalidated it
     nodes_[node_idx].left_child = left_idx;
     nodes_[node_idx].right_child = right_idx;
+    nodes_[left_idx].parent_idx = node_idx;
+    nodes_[right_idx].parent_idx = node_idx;
 
     build_tree(left_items, left_idx, depth + 1);
     build_tree(right_items, right_idx, depth + 1);
@@ -231,6 +235,150 @@ StaticHeuristicKDTree::choose_h(
             }
             self(self, first);
             self(self, second);
+        }
+    };
+
+    query_node(query_node, 0);
+
+    if (best_valid_idx != std::numeric_limits<size_t>::max()) {
+        return std::make_pair(raw_heuristics_[best_valid_idx], best_valid_idx);
+    }
+    return std::nullopt;
+}
+
+
+std::optional<std::pair<std::vector<size_t>, size_t>>
+StaticHeuristicKDTree::choose_h_bottom_up(
+    const std::vector<size_t>& g,
+    const std::vector<size_t>& flat_target_frontier,
+    size_t start_idx,
+    uint64_t* cmp_counter) const {
+    
+    if (raw_heuristics_.empty() || start_idx >= raw_heuristics_.size()) return std::nullopt;
+    if (flat_target_frontier.empty()) return std::make_pair(raw_heuristics_[start_idx], start_idx);
+    
+    size_t num_obj = dim_ + 1;
+    uint32_t curr = leaf_of_idx[start_idx];
+    
+    while (curr != UINT32_MAX) {
+        if (curr >= nodes_.size()) break;
+        const auto& node = nodes_[curr];
+        
+        if (node.is_leaf()) {
+            const auto& h0 = raw_heuristics_[start_idx];
+            bool h0_dominated = false;
+            for (size_t i = 0; i < flat_target_frontier.size(); i += num_obj) {
+                if (cmp_counter) (*cmp_counter)++;
+                bool dom = true;
+                for (size_t d = 0; d < dim_; ++d) {
+                    if (g[d + 1] + h0[d + 1] < flat_target_frontier[i + d + 1]) {
+                        dom = false;
+                        break;
+                    }
+                }
+                if (dom) {
+                    h0_dominated = true;
+                    break;
+                }
+            }
+            if (!h0_dominated) return std::make_pair(h0, start_idx);
+        } else {
+            const size_t* min_b = &all_min_bounds[curr * dim_];
+            bool min_dominated = false;
+            for (size_t i = 0; i < flat_target_frontier.size(); i += num_obj) {
+                if (cmp_counter) (*cmp_counter)++;
+                bool dom = true;
+                for (size_t d = 0; d < dim_; ++d) {
+                    if (g[d + 1] + min_b[d] < flat_target_frontier[i + d + 1]) {
+                        dom = false;
+                        break;
+                    }
+                }
+                if (dom) {
+                    min_dominated = true;
+                    break;
+                }
+            }
+            if (!min_dominated) {
+                static thread_local std::vector<size_t> synthetic_h;
+                synthetic_h.resize(dim_ + 1);
+                synthetic_h[0] = 0;
+                for(size_t d=0; d<dim_; ++d) synthetic_h[d+1] = min_b[d];
+                return std::make_pair(synthetic_h, start_idx);
+            }
+        }
+        curr = node.parent_idx;
+    }
+    
+    return std::nullopt;
+}
+
+std::optional<std::pair<std::vector<size_t>, size_t>>
+StaticHeuristicKDTree::choose_h_dual(
+    const std::vector<size_t>& g,
+    const fast_mvh::DynamicFrontierKDTree<>& target_frontier_kdt,
+    size_t start_idx,
+    uint64_t* cmp_counter) const {
+    
+    if (raw_heuristics_.empty() || start_idx >= raw_heuristics_.size()) {
+        return std::nullopt;
+    }
+
+    if (target_frontier_kdt.size() == 0) {
+        return std::make_pair(raw_heuristics_[start_idx], start_idx);
+    }
+
+    size_t best_valid_idx = std::numeric_limits<size_t>::max();
+
+    auto query_node = [&](auto self, uint32_t node_idx) -> void {
+        if (node_idx >= nodes_.size()) return;
+        const auto& node = nodes_[node_idx];
+
+        if (node.max_idx < start_idx || node.min_idx >= best_valid_idx) {
+            return;
+        }
+
+        const size_t* min_b = &all_min_bounds[node_idx * dim_];
+        const size_t* max_b = &all_max_bounds[node_idx * dim_];
+
+        // Rule 1: Is g + min_b dominated by the target frontier KDT?
+        std::vector<size_t> query_min(dim_ + 1, 0);
+        for(size_t d=0; d<dim_; ++d) query_min[d+1] = g[d+1] + min_b[d];
+        if (target_frontier_kdt.check_dominated(query_min, *cmp_counter)) {
+            return; // Pruned
+        }
+
+        // Rule 2: Is g + max_b guaranteed undominated by the target frontier KDT?
+        std::vector<size_t> query_max(dim_ + 1, 0);
+        for(size_t d=0; d<dim_; ++d) query_max[d+1] = g[d+1] + max_b[d];
+        if (!target_frontier_kdt.check_dominated(query_max, *cmp_counter)) {
+            auto it = std::lower_bound(
+                all_node_indices.begin() + node.indices_offset,
+                all_node_indices.begin() + node.indices_offset + node.indices_count,
+                static_cast<uint32_t>(start_idx));
+                
+            if (it != (all_node_indices.begin() + node.indices_offset + node.indices_count)) {
+                if (*it < best_valid_idx) best_valid_idx = *it;
+            }
+            return;
+        }
+
+        if (node.is_leaf()) {
+            uint32_t start = node.first_elem_idx;
+            uint32_t end = start + node.count;
+            for (uint32_t i = start; i < end; ++i) {
+                const auto& item = leaf_items_[i];
+                if (item.second >= start_idx && item.second < best_valid_idx) {
+                    std::vector<size_t> query_exact(dim_ + 1, 0);
+                    for(size_t d=0; d<dim_; ++d) query_exact[d+1] = g[d+1] + item.first[d];
+                    if (!target_frontier_kdt.check_dominated(query_exact, *cmp_counter)) {
+                        best_valid_idx = item.second;
+                    }
+                }
+            }
+        } else {
+            self(self, node.left_child);
+            self(self, node.right_child);
         }
     };
 

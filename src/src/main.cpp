@@ -66,9 +66,14 @@ int main(int argc, char** argv) {
 
         SolutionSet solutions;
 
-        if (algorithm == "L_NAMOA_KDT_CHOOSEH" || algorithm == "L_NAMOA_DR_MVH_INSTRUMENTED") {
+        if (algorithm == "L_NAMOA_KDT_CHOOSEH" || algorithm == "L_NAMOA_DR_MVH_INSTRUMENTED" || algorithm == "L_NAMOA_KDT_V1" || algorithm == "L_NAMOA_KDT_V2" || algorithm == "L_NAMOA_KDT_V3" || algorithm == "L_NAMOA_KDT_V5") {
             L_NAMOA_KDT_CHOOSEH solver(adj_matrix, eps);
-            solver.use_kdt_chooseh = (algorithm == "L_NAMOA_KDT_CHOOSEH");
+            solver.use_kdt_chooseh = (algorithm != "L_NAMOA_DR_MVH_INSTRUMENTED");
+            if (algorithm == "L_NAMOA_KDT_V1") solver.variant = L_NAMOA_KDT_CHOOSEH::Variant::V1;
+            else if (algorithm == "L_NAMOA_KDT_V2") solver.variant = L_NAMOA_KDT_CHOOSEH::Variant::V2;
+            else if (algorithm == "L_NAMOA_KDT_V3") solver.variant = L_NAMOA_KDT_CHOOSEH::Variant::V3;
+            else if (algorithm == "L_NAMOA_KDT_V5") solver.variant = L_NAMOA_KDT_CHOOSEH::Variant::V5;
+            else solver.variant = L_NAMOA_KDT_CHOOSEH::Variant::ORIGINAL;
             solver(start, goal, mvh, solutions, timeout, sol_out, stats_out);
 
             std::cout << "algorithm=" << algorithm

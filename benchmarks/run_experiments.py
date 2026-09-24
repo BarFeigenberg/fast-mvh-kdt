@@ -245,48 +245,40 @@ def main():
             obj_args = [str(o) for o in args.objectives]
             obj_count = len(args.objectives)
 
-            # 1. Run Baseline (if available)
-            if args.baseline_bin and os.path.exists(args.baseline_bin):
-                run_name = f"baseline_{map_name}_s{start_node}_g{goal_node}_d{obj_count}"
-                sol_file = os.path.join(run_dir, f"{run_name}_sols.txt")
-                cmd = [
-                    args.baseline_bin,
-                    "--map", map_dir,
-                    "--start", start_node,
-                    "--goal", goal_node,
-                    "--algorithm", "L_NAMOA_DR_MVH",
-                    "--objectives", *obj_args,
-                    "--cutoffTime", str(args.timeout),
-                    "--logging_file", os.path.join(run_dir, f"{run_name}_log"),
-                ]
-                print(f"\nRunning Baseline: {run_name}")
-                res = execute_solver_run(cmd, args.timeout + 5, run_dir, run_name)
-                res["instance"] = map_name
-                res["source"] = start_node
-                res["target"] = goal_node
-                res["num_objectives"] = obj_count
-                results.append(res)
+            import time
+            mvh_path = os.path.join(map_dir, "mvh_K50.mvh") # Use the generated MVH if present
+            mvh_args = ["--mvh", mvh_path] if os.path.exists(mvh_path) else []
 
-            # 2. Run Fast MVH (KD-Tree)
+            algorithms = [
+                ("Baseline", "L_NAMOA_DR_MVH_INSTRUMENTED"),
+                ("Shahaf", "L_NAMOA_DR_MVH_KDT"),
+                ("Roi", "L_NAMOA_KDT_CHOOSEH")
+            ]
+            
             if args.kdt_bin and os.path.exists(args.kdt_bin):
-                run_name = f"kdt_{map_name}_s{start_node}_g{goal_node}_d{obj_count}"
-                sol_file = os.path.join(run_dir, f"{run_name}_sols.txt")
-                cmd = [
-                    args.kdt_bin,
-                    "--map", map_dir,
-                    "--start", start_node,
-                    "--goal", goal_node,
-                    "--objectives", *obj_args,
-                    "--timeout", str(args.timeout),
-                    "--sol-out", sol_file,
-                ]
-                print(f"\nRunning Fast MVH: {run_name}")
-                res = execute_solver_run(cmd, args.timeout + 5, run_dir, run_name)
-                res["instance"] = map_name
-                res["source"] = start_node
-                res["target"] = goal_node
-                res["num_objectives"] = obj_count
-                results.append(res)
+                for algo_name, algo_val in algorithms:
+                    run_name = f"{algo_name}_{map_name}_s{start_node}_g{goal_node}_d{obj_count}"
+                    sol_file = os.path.join(run_dir, f"{run_name}_sols.txt")
+                    stats_file = os.path.join(run_dir, f"{run_name}_stats.txt")
+                    cmd = [
+                        args.kdt_bin,
+                        "--map", map_dir,
+                        "--start", start_node,
+                        "--goal", goal_node,
+                        "--objectives", *obj_args,
+                        "--algorithm", algo_val,
+                        "--cutoffTime", str(args.timeout),
+                        "--sol-out", sol_file,
+                        "--stats-out", stats_file,
+                    ] + mvh_args
+                    print(f"\nRunning {algo_name}: {run_name}")
+                    res = execute_solver_run(cmd, args.timeout + 5, run_dir, run_name)
+                    res["instance"] = map_name
+                    res["source"] = start_node
+                    res["target"] = goal_node
+                    res["num_objectives"] = obj_count
+                    results.append(res)
+                    time.sleep(1)
 
     write_summary_tables(results, run_dir)
     print(f"\n[FINISHED] Benchmark sweep complete.")

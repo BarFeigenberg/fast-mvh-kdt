@@ -1,8 +1,22 @@
 build/
+build_shahaf/
 .vs/
 *.user
 *.log
+*.exe
 scratchpad/
-benchmarks/runs/
 __pycache__/
 *.pyc
+
+# Temporary scratch outputs
+_apex_mvh.txt
+maya_sols.csv
+v5_sols.csv
+~$*
+patch_kdtree.py
+unpatch_kdtree.py
+
+# Ignore bulk run outputs by default, but safeguard breakthrough archives
+benchmarks/runs/*
+!benchmarks/runs/adaptive_explorer/
+benchmarks/instances/

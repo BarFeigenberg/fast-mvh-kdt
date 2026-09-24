@@ -90,9 +90,11 @@ template<MemoryBackend Backend>
 void DynamicFrontierKDTree<Backend>::init_leaf(Node& n, const std::vector<size_t>& pt, uint32_t axis) {
     n.axis = axis;
     n.dead = false;
-    n.pt = pt;
-    n.lo = pt;
-    n.hi = pt;
+    for (size_t i = 0; i < pt.size() && i < MAX_DIM; ++i) {
+        n.pt[i] = pt[i];
+        n.lo[i] = pt[i];
+        n.hi[i] = pt[i];
+    }
     n.l_ptr = nullptr;
     n.r_ptr = nullptr;
     n.l_idx = UINT32_MAX;
@@ -254,7 +256,7 @@ void DynamicFrontierKDTree<Backend>::mark_dominated_ptr(Node* n, const std::vect
     if (!n->dead) {
         cmpupd_counter++;
         bool dominated = true;
-        for (size_t d = 0; d < pt.size(); ++d) {
+        for (size_t d = 1; d <= proj_dim_; ++d) {
             if (pt[d] > n->pt[d]) {
                 dominated = false;
                 break;
@@ -280,7 +282,7 @@ void DynamicFrontierKDTree<Backend>::mark_dominated_idx(uint32_t n_idx, const st
     if (!n.dead) {
         cmpupd_counter++;
         bool dominated = true;
-        for (size_t d = 0; d < pt.size(); ++d) {
+        for (size_t d = 1; d <= proj_dim_; ++d) {
             if (pt[d] > n.pt[d]) {
                 dominated = false;
                 break;
@@ -301,7 +303,7 @@ void DynamicFrontierKDTree<Backend>::mark_dominated_idx(uint32_t n_idx, const st
 template<MemoryBackend Backend>
 void DynamicFrontierKDTree<Backend>::collect_live_ptr(Node* n, std::vector<std::vector<size_t>>& out) const {
     if (!n) return;
-    if (!n->dead) out.push_back(n->pt);
+    if (!n->dead) out.push_back(std::vector<size_t>(n->pt.begin(), n->pt.begin() + d_));
     collect_live_ptr(n->l_ptr, out);
     collect_live_ptr(n->r_ptr, out);
 }
@@ -310,7 +312,7 @@ template<MemoryBackend Backend>
 void DynamicFrontierKDTree<Backend>::collect_live_idx(uint32_t n_idx, std::vector<std::vector<size_t>>& out) const {
     if (n_idx == UINT32_MAX) return;
     const Node& n = tree_nodes_[n_idx];
-    if (!n.dead) out.push_back(n.pt);
+    if (!n.dead) out.push_back(std::vector<size_t>(n.pt.begin(), n.pt.begin() + d_));
     collect_live_idx(n.l_idx, out);
     collect_live_idx(n.r_idx, out);
 }

@@ -145,3 +145,46 @@ Derived from the project roadmap in `papers/notes/Research_Notes_ReadMe.docx`:
 ### Phase 4: Local Ideal Point Heuristic Exploration
 - Explore computing dynamic "local ideal points" $\mathbf{h}^*_{\mathrm{local}} = \min_{\mathbf{h} \in H(s)} \mathbf{h}$ to guide optimistic pruning.
 - Measure impact on fallback frequency and expansion count.
+
+---
+
+## 4. Formal 4-Variant Research & Ablation Architecture
+
+To provide an airtight theoretical and experimental foundation for the thesis, the framework formalizes a clean $2 \times 2$ factorial ablation architecture:
+
+```
+                          Target Frontier Dominance Check (G_cl_Tr)
+                          Linear Array Scan          Dynamic K-d Tree (Shahaf)
+                     +--------------------------+-------------------------------+
+Heuristic  Linear    |  VARIANT 1:              |  VARIANT 2:                   |
+Selection  Scan      |  Maya Baseline           |  Maya + Shahaf Only           |
+(CHOOSEH)            |  (Ground-Truth Oracle)   |  (Isolates Frontier Speedup)  |
+                     +--------------------------+-------------------------------+
+           Static    |  VARIANT 3:              |  VARIANT 4:                   |
+           K-d Tree  |  Maya + Roi Only         |  Maya + Roi + Shahaf          |
+           (Roi)     |  (Isolates Heuristic Pr) |  (Full Dual-Tree Synergy)     |
+                     +--------------------------+-------------------------------+
+```
+
+### 4.1 Variant Specifications & Interface Contracts
+
+1. **Variant 1: Maya Baseline (`L_NAMOA_DR_MVH`)**
+   - **Heuristic Selection**: Linear scan over $H(s)$ against $T$ ($O(|H(s)| \cdot |T|)$).
+   - **Frontier Dominance**: Linear scan over flat array $G_{\text{cl}}^{\text{Tr}}(s)$ ($O(|T|)$).
+   - **Research Purpose**: Unmodified reference oracle guaranteeing bit-identical Pareto baseline.
+
+2. **Variant 2: Maya + Shahaf Only (`L_NAMOA_DR_MVH_KDT` / Frontier-Only)**
+   - **Heuristic Selection**: Unmodified linear scan over $H(s)$ against $T$.
+   - **Frontier Dominance**: `fast_mvh::DynamicFrontierKDTree` indexing $G_{\text{cl}}^{\text{Tr}}(s)$ ($O(|T|^{1 - 1/d})$).
+   - **Research Purpose**: Isolates exact speedup from geometric frontier indexing independently of heuristic selection.
+
+3. **Variant 3: Maya + Roi Only (`L_NAMOA_KDT_CHOOSEH` / Heuristic-Only)**
+   - **Heuristic Selection**: `fast_mvh::StaticHeuristicKDTree` with bounding-box pruning and lexicographical tie-breaking ($O(|T| \log |H(s)|)$).
+   - **Frontier Dominance**: Unmodified linear scan over flat array $G_{\text{cl}}^{\text{Tr}}(s)$.
+   - **Research Purpose**: Isolates pure geometric heuristic pruning leverage across varying cardinality $K$.
+
+4. **Variant 4: Maya + Roi + Shahaf (`FAST_MVH_KDT` / Dual-Tree)**
+   - **Heuristic Selection**: `StaticHeuristicKDTree::choose_h_dual` querying `DynamicFrontierKDTree`.
+   - **Frontier Dominance**: `DynamicFrontierKDTree` for local and global path dominance checks.
+   - **Research Purpose**: Evaluates multiplicative geometric acceleration ($O(\log |H(s)| \cdot \log |T|)$) on dense, high-dimensional frontiers.
+

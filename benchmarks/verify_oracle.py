@@ -127,7 +127,7 @@ def main():
     # Case B: Execution mode
     if args.test_bin and args.map and args.start is not None and args.goal is not None:
         os.makedirs(args.scratch_dir, exist_ok=True)
-        oracle_out = os.path.join(args.scratch_dir, "oracle_sol.txt")
+        oracle_out = os.path.join(args.scratch_dir, f"oracle_{args.start}_solutions.txt")
         test_out = os.path.join(args.scratch_dir, "test_sol.txt")
 
         # Run Test Binary

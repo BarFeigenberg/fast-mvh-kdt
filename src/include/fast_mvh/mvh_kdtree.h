@@ -6,6 +6,7 @@
 #include <optional>
 #include <utility>
 #include <algorithm>
+#include "fast_mvh/kdtree/dynamic_frontier_kdtree.h"
 
 namespace fast_mvh {
 
@@ -18,6 +19,7 @@ struct StaticKDNode {
     uint32_t right_child{UINT32_MAX};
     uint32_t first_elem_idx{0};
     uint32_t count{0}; // >0 indicates leaf node
+    uint32_t parent_idx{UINT32_MAX};
 
     uint32_t min_idx{UINT32_MAX};   // Minimum lexicographical index in subtree
     uint32_t max_idx{0};            // Maximum lexicographical index in subtree
@@ -43,6 +45,18 @@ public:
              size_t start_idx = 0,
              uint64_t* cmp_counter = nullptr) const;
 
+    [[nodiscard]] std::optional<std::pair<std::vector<size_t>, size_t>>
+    choose_h_bottom_up(const std::vector<size_t>& g,
+             const std::vector<size_t>& flat_target_frontier,
+             size_t start_idx = 0,
+             uint64_t* cmp_counter = nullptr) const;
+
+    [[nodiscard]] std::optional<std::pair<std::vector<size_t>, size_t>>
+    choose_h_dual(const std::vector<size_t>& g,
+             const fast_mvh::DynamicFrontierKDTree<>& target_frontier_kdt,
+             size_t start_idx = 0,
+             uint64_t* cmp_counter = nullptr) const;
+
     [[nodiscard]] size_t size() const noexcept { return raw_heuristics_.size(); }
     [[nodiscard]] bool empty() const noexcept { return raw_heuristics_.empty(); }
     [[nodiscard]] const std::vector<std::vector<size_t>>& raw_heuristics() const noexcept { return raw_heuristics_; }
@@ -52,6 +66,7 @@ private:
                     uint32_t node_idx, size_t depth);
 
     std::vector<StaticKDNode> nodes_;
+    std::vector<uint32_t> leaf_of_idx;
     std::vector<size_t> all_min_bounds;
     std::vector<size_t> all_max_bounds;
     std::vector<uint32_t> all_node_indices;
