@@ -1,0 +1,14 @@
+{
+  "BAY-d.gr.gz": {
+    "url": "https://www.diag.uniroma1.it/challenge9/data/USA-road-d/USA-road-d.BAY.gr.gz",
+    "description": "Official ninth DIMACS challenge San Francisco Bay distance arc weights"
+  },
+  "BAY-t.gr.gz": {
+    "url": "https://www.diag.uniroma1.it/challenge9/data/USA-road-t/USA-road-t.BAY.gr.gz",
+    "description": "Official ninth DIMACS challenge San Francisco Bay travel-time arc weights"
+  },
+  "retrieved": "2026-09-29",
+  "download_command": "curl.exe --ssl-no-revoke --fail --location --connect-timeout 10 --max-time 60 --silent --show-error --output <file> <url>",
+  "alignment": "Parallel arcs are retained. Distance and time endpoints are checked for exact line-by-line alignment before costs are combined.",
+  "hashes": "SHA-256 digests are recorded in each generated graph's generation.json"
+}
