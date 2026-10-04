@@ -1,0 +1,5 @@
+flatH|flatH=1
+redund|flatH=1 redund=1
+lastwit|flatH=1 lastwit=1
+redund_lastwit|flatH=1 redund=1 lastwit=1
+all_cheap|flatH=1 redund=1 lastwit=1 local_first=1 witness=1

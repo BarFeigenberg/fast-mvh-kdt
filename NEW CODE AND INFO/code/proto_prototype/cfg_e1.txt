@@ -1,0 +1,18 @@
+flat|flatH=1 local_first=1 witness=1
+kd_X0|flatH=1 local_first=1 witness=1 localX=0 targetX=0
+kd_X16|flatH=1 local_first=1 witness=1 localX=16 targetX=16
+kd_X32|flatH=1 local_first=1 witness=1 localX=32 targetX=32
+kd_X64|flatH=1 local_first=1 witness=1 localX=64 targetX=64
+kd_X128|flatH=1 local_first=1 witness=1 localX=128 targetX=128
+kd_X256|flatH=1 local_first=1 witness=1 localX=256 targetX=256
+kd_X512|flatH=1 local_first=1 witness=1 localX=512 targetX=512
+kd_X0_rb2x|flatH=1 local_first=1 witness=1 localX=0 targetX=0 rb_div=1 rb_slack=8
+kd_X0_stale|flatH=1 local_first=1 witness=1 localX=0 targetX=0 exact_max=0
+bk16_X0|flatH=1 local_first=1 witness=1 localX=0 targetX=0 bk=16
+bk16_X32|flatH=1 local_first=1 witness=1 localX=32 targetX=32 bk=16
+bk16_X64|flatH=1 local_first=1 witness=1 localX=64 targetX=64 bk=16
+bk16_X128|flatH=1 local_first=1 witness=1 localX=128 targetX=128 bk=16
+bk16_X256|flatH=1 local_first=1 witness=1 localX=256 targetX=256 bk=16
+bk8_X0|flatH=1 local_first=1 witness=1 localX=0 targetX=0 bk=8
+bk32_X0|flatH=1 local_first=1 witness=1 localX=0 targetX=0 bk=32
+flat_lw|flatH=1 local_first=1 witness=1 lastwit=1

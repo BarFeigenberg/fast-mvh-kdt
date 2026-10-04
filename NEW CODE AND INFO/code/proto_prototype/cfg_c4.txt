@@ -1,0 +1,9 @@
+base|
+bk16_all|localX=0 targetX=0 bk=16
+bk8_all|localX=0 targetX=0 bk=8
+bk32_hyb|localX=32 targetX=32 bk=32
+kd_all|localX=0 targetX=0
+kd_orig_rb|localX=0 targetX=0 rb_div=1 rb_slack=8
+lexBU_bkT|chooseh=2 fastpath=1 ideal=1 targetX=0 bk=16
+roi_bkT|chooseh=3 fastpath=1 ideal=1 targetX=0 bk=16
+full_combo|flatH=1 redund=1 lastwit=1 local_first=1 witness=1 localX=64 targetX=64 bk=16

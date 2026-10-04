@@ -1,0 +1,11 @@
+none|
+FULL|flatH=1 local_first=1 witness=1 redund=1 localX=8 targetX=8 promoteC=64
+no_local_first|flatH=1 witness=1 redund=1 localX=8 targetX=8 promoteC=64
+no_witness|flatH=1 local_first=1 redund=1 localX=8 targetX=8 promoteC=64
+no_redund|flatH=1 local_first=1 witness=1 localX=8 targetX=8 promoteC=64
+no_kd|flatH=1 local_first=1 witness=1 redund=1
+no_flatH_redund|local_first=1 witness=1 localX=8 targetX=8 promoteC=64
+fixedX16|flatH=1 local_first=1 witness=1 redund=1 localX=16 targetX=16
+plus_roi1024_kdT|flatH=1 local_first=1 witness=1 redund=1 localX=8 targetX=8 promoteC=64 chooseh=3 fastpath=1 hX=1024 targetX=0 promoteC=64
+plus_gcl_prune|flatH=1 local_first=1 witness=1 redund=1 localX=8 targetX=8 promoteC=64 gcl_prune=1
+plus_lastwit|flatH=1 local_first=1 witness=1 redund=1 localX=8 targetX=8 promoteC=64 lastwit=1

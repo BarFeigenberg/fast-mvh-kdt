@@ -1,0 +1,11 @@
+flatH|flatH=1
+lexBU_fp|chooseh=2 fastpath=1
+lexBU_fp_id|chooseh=2 fastpath=1 ideal=1
+lexTD_fp_id|chooseh=1 fastpath=1 ideal=1
+roi_fp_id|chooseh=3 fastpath=1 ideal=1
+lexBU_fp_id_tKD|chooseh=2 fastpath=1 ideal=1 targetX=0
+lexBU_fp_id_filt|chooseh=2 fastpath=1 ideal=1 filterT=1
+lexBU_fp_id_filt_tKD|chooseh=2 fastpath=1 ideal=1 filterT=1 targetX=0
+lin_ideal|flatH=1 ideal=1
+allKD|localX=0 targetX=0 flatH=1
+witness_lf|flatH=1 witness=1 local_first=1

@@ -1,0 +1,16 @@
+flatT_lin|flatH=1
+flatT_lin_r_id|flatH=1 redund=1 ideal=1
+flatT_lexTD|flatH=1 chooseh=1 hX=0
+flatT_lexBU|flatH=1 chooseh=2 hX=0
+flatT_lexBU_fp_id_r|flatH=1 chooseh=2 fastpath=1 ideal=1 redund=1 hX=0
+flatT_roi|flatH=1 chooseh=3 hX=0
+flatT_roi_fp_id|flatH=1 chooseh=3 fastpath=1 ideal=1 hX=0
+flatT_roi_fp_id_h256|flatH=1 chooseh=3 fastpath=1 ideal=1 redund=1 hX=256
+kdT_lin|flatH=1 localX=16 targetX=16
+kdT_lin_r_id|flatH=1 localX=16 targetX=16 redund=1 ideal=1
+kdT_lexTD|flatH=1 localX=16 targetX=16 chooseh=1 hX=0
+kdT_lexBU|flatH=1 localX=16 targetX=16 chooseh=2 hX=0
+kdT_lexBU_fp_id_r|flatH=1 localX=16 targetX=16 chooseh=2 fastpath=1 ideal=1 redund=1 hX=0
+kdT_roi|flatH=1 localX=16 targetX=16 chooseh=3 hX=0
+kdT_roi_fp_id|flatH=1 localX=16 targetX=16 chooseh=3 fastpath=1 ideal=1 hX=0
+kdT_roi_fp_id_h256|flatH=1 localX=16 targetX=16 chooseh=3 fastpath=1 ideal=1 redund=1 hX=256

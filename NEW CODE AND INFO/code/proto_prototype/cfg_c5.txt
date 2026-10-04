@@ -1,0 +1,6 @@
+bk8|localX=0 targetX=0 bk=8
+bk16|localX=0 targetX=0 bk=16
+bk32_norb|localX=0 targetX=0 bk=32 rb_slack=1000000000
+bk16_wit_lf|localX=0 targetX=0 bk=16 witness=1 local_first=1 flatH=1
+bk16_hyb64|localX=64 targetX=64 bk=16
+roi_bkT|chooseh=3 fastpath=1 ideal=1 targetX=0 bk=16

@@ -1,0 +1,912 @@
+diff --git a/src/src/mvh_kdtree.cpp b/src/src/mvh_kdtree.cpp
+index 902ac61..a0794a1 100644
+--- a/src/src/mvh_kdtree.cpp
++++ b/src/src/mvh_kdtree.cpp
+@@ -253,64 +253,31 @@ StaticHeuristicKDTree::choose_h_bottom_up(
+     const std::vector<size_t>& flat_target_frontier,
+     size_t start_idx,
+     uint64_t* cmp_counter) const {
+-    
++    // The previous version returned a synthetic heuristic (Tr = subtree N.min, h_1 = 0) as soon as an
++    // ancestor's min-box was undominated. That vector is not a member of H(s) and changes f = g + h,
++    // hence the OPEN order (observed: 43420 vs 41129 expansions). In a spatial tree the ancestors of
++    // leaf(start_idx) do not bound the index range [start_idx, K), so a true bottom-up search is not
++    // defined here. Sound replacement: test h[start_idx] directly (fast path), then run the exact
++    // top-down search from start_idx + 1.
+     if (raw_heuristics_.empty() || start_idx >= raw_heuristics_.size()) return std::nullopt;
+     if (flat_target_frontier.empty()) return std::make_pair(raw_heuristics_[start_idx], start_idx);
+-    
+-    size_t num_obj = dim_ + 1;
+-    uint32_t curr = leaf_of_idx[start_idx];
+-    
+-    while (curr != UINT32_MAX) {
+-        if (curr >= nodes_.size()) break;
+-        const auto& node = nodes_[curr];
+-        
+-        if (node.is_leaf()) {
+-            const auto& h0 = raw_heuristics_[start_idx];
+-            bool h0_dominated = false;
+-            for (size_t i = 0; i < flat_target_frontier.size(); i += num_obj) {
+-                if (cmp_counter) (*cmp_counter)++;
+-                bool dom = true;
+-                for (size_t d = 0; d < dim_; ++d) {
+-                    if (g[d + 1] + h0[d + 1] < flat_target_frontier[i + d + 1]) {
+-                        dom = false;
+-                        break;
+-                    }
+-                }
+-                if (dom) {
+-                    h0_dominated = true;
+-                    break;
+-                }
+-            }
+-            if (!h0_dominated) return std::make_pair(h0, start_idx);
+-        } else {
+-            const size_t* min_b = &all_min_bounds[curr * dim_];
+-            bool min_dominated = false;
+-            for (size_t i = 0; i < flat_target_frontier.size(); i += num_obj) {
+-                if (cmp_counter) (*cmp_counter)++;
+-                bool dom = true;
+-                for (size_t d = 0; d < dim_; ++d) {
+-                    if (g[d + 1] + min_b[d] < flat_target_frontier[i + d + 1]) {
+-                        dom = false;
+-                        break;
+-                    }
+-                }
+-                if (dom) {
+-                    min_dominated = true;
+-                    break;
+-                }
+-            }
+-            if (!min_dominated) {
+-                static thread_local std::vector<size_t> synthetic_h;
+-                synthetic_h.resize(dim_ + 1);
+-                synthetic_h[0] = 0;
+-                for(size_t d=0; d<dim_; ++d) synthetic_h[d+1] = min_b[d];
+-                return std::make_pair(synthetic_h, start_idx);
++
++    const size_t num_obj = dim_ + 1;
++    const auto& h0 = raw_heuristics_[start_idx];
++    for (size_t i = 0; i < flat_target_frontier.size(); i += num_obj) {
++        if (cmp_counter) (*cmp_counter)++;
++        bool dom = true;
++        for (size_t d = 0; d < dim_; ++d) {
++            if (g[d + 1] + h0[d + 1] < flat_target_frontier[i + d + 1]) {
++                dom = false;
++                break;
+             }
+         }
+-        curr = node.parent_idx;
++        if (dom) {
++            return choose_h(g, flat_target_frontier, start_idx + 1, cmp_counter);
++        }
+     }
+-    
+-    return std::nullopt;
++    return std::make_pair(h0, start_idx);
+ }
+ 
+ std::optional<std::pair<std::vector<size_t>, size_t>>
+@@ -329,6 +296,8 @@ StaticHeuristicKDTree::choose_h_dual(
+     }
+ 
+     size_t best_valid_idx = std::numeric_limits<size_t>::max();
++    // One reusable query buffer per call (was: three heap-allocated vectors per visited node).
++    std::vector<size_t> query(dim_ + 1, 0);
+ 
+     auto query_node = [&](auto self, uint32_t node_idx) -> void {
+         if (node_idx >= nodes_.size()) return;
+@@ -342,16 +311,14 @@ StaticHeuristicKDTree::choose_h_dual(
+         const size_t* max_b = &all_max_bounds[node_idx * dim_];
+ 
+         // Rule 1: Is g + min_b dominated by the target frontier KDT?
+-        std::vector<size_t> query_min(dim_ + 1, 0);
+-        for(size_t d=0; d<dim_; ++d) query_min[d+1] = g[d+1] + min_b[d];
+-        if (target_frontier_kdt.check_dominated(query_min, *cmp_counter)) {
++        for(size_t d=0; d<dim_; ++d) query[d+1] = g[d+1] + min_b[d];
++        if (target_frontier_kdt.check_dominated(query, *cmp_counter)) {
+             return; // Pruned
+         }
+ 
+         // Rule 2: Is g + max_b guaranteed undominated by the target frontier KDT?
+-        std::vector<size_t> query_max(dim_ + 1, 0);
+-        for(size_t d=0; d<dim_; ++d) query_max[d+1] = g[d+1] + max_b[d];
+-        if (!target_frontier_kdt.check_dominated(query_max, *cmp_counter)) {
++        for(size_t d=0; d<dim_; ++d) query[d+1] = g[d+1] + max_b[d];
++        if (!target_frontier_kdt.check_dominated(query, *cmp_counter)) {
+             auto it = std::lower_bound(
+                 all_node_indices.begin() + node.indices_offset,
+                 all_node_indices.begin() + node.indices_offset + node.indices_count,
+@@ -369,16 +336,19 @@ StaticHeuristicKDTree::choose_h_dual(
+             for (uint32_t i = start; i < end; ++i) {
+                 const auto& item = leaf_items_[i];
+                 if (item.second >= start_idx && item.second < best_valid_idx) {
+-                    std::vector<size_t> query_exact(dim_ + 1, 0);
+-                    for(size_t d=0; d<dim_; ++d) query_exact[d+1] = g[d+1] + item.first[d];
+-                    if (!target_frontier_kdt.check_dominated(query_exact, *cmp_counter)) {
++                    for(size_t d=0; d<dim_; ++d) query[d+1] = g[d+1] + item.first[d];
++                    if (!target_frontier_kdt.check_dominated(query, *cmp_counter)) {
+                         best_valid_idx = item.second;
+                     }
+                 }
+             }
+         } else {
+-            self(self, node.left_child);
+-            self(self, node.right_child);
++            // Same child order as choose_h: smaller min_idx first tightens best_valid_idx earlier.
++            uint32_t first = node.left_child;
++            uint32_t second = node.right_child;
++            if (nodes_[second].min_idx < nodes_[first].min_idx) std::swap(first, second);
++            self(self, first);
++            self(self, second);
+         }
+     };
+ 
+diff --git a/src/src/solvers/l_namoa_kdt_chooseh.cpp b/src/src/solvers/l_namoa_kdt_chooseh.cpp
+index e469b7d..eecd230 100644
+--- a/src/src/solvers/l_namoa_kdt_chooseh.cpp
++++ b/src/src/solvers/l_namoa_kdt_chooseh.cpp
+@@ -113,6 +113,9 @@ L_NAMOA_KDT_CHOOSEH::get_first_undominated_heuristic_value(
+         if (state_id < heuristic_kdtrees.size() && !heuristic_kdtrees[state_id].empty()) {
+             
+             if (variant == Variant::V1) {
++                if (start_idx >= node_mvh.size()) {
++                    return std::nullopt;  // reinsertion past the last heuristic (was an out-of-bounds read)
++                }
+                 const auto& flat_list = truncated_non_dominated_g_flat[target];
+                 size_t num_obj = g_value.size();
+                 const auto& h0 = node_mvh[start_idx];
+diff --git a/src/src/main.cpp b/src/src/main.cpp
+index aee3813..104391b 100644
+--- a/src/src/main.cpp
++++ b/src/src/main.cpp
+@@ -3,11 +3,14 @@
+ #include <string>
+ #include <fstream>
+ #include <algorithm>
++#include <cstdint>
++#include <limits>
+ 
+ #include <boost/program_options.hpp>
+ 
+ #include "fast_mvh/solvers/l_namoa_kdt_chooseh.h"
+ #include "fast_mvh/solvers/l_namoa_dr_mvh_kdt.h"
++#include "fast_mvh/solvers/l_namoa_dr_mvh_fast.h"
+ #include "parser.h"
+ #include "parsers/multi_valued_heuristic_parser.h"
+ #include "multivalued_heuristic/apex_mvh.h"
+@@ -27,7 +30,10 @@ int main(int argc, char** argv) {
+             ("mvh", po::value<std::string>()->default_value(""), "Directory for multi valued heuristic file")
+             ("sol-out", po::value<std::string>()->default_value(""), "File to output solutions")
+             ("stats-out", po::value<std::string>()->default_value(""), "File to output statistics")
+-            ("cutoffTime,t", po::value<unsigned int>()->default_value(120), "Cutoff time in seconds (0 = no limit)");
++            ("cutoffTime,t", po::value<unsigned int>()->default_value(120), "Cutoff time in seconds (0 = no limit)")
++            ("h-tree-min", po::value<size_t>()->default_value(std::numeric_limits<size_t>::max()), "L_NAMOA_DR_MVH_FAST: build Roi heuristic tree when |H(s)| >= this")
++            ("promote-min", po::value<size_t>()->default_value(8), "L_NAMOA_DR_MVH_FAST: min frontier size before K-d promotion")
++            ("promote-scan", po::value<uint64_t>()->default_value(64), "L_NAMOA_DR_MVH_FAST: promote when mean flat scan length >= this");
+ 
+         po::variables_map vm;
+         po::store(po::parse_command_line(argc, argv, desc), vm);
+@@ -109,6 +115,34 @@ int main(int argc, char** argv) {
+                       << "\tcmpupd=" << solver.cmpupd
+                       << "\n";
+             solutions.clear();
++        } else if (algorithm == "L_NAMOA_DR_MVH_FAST") {
++            L_NAMOA_DR_MVH_FAST solver(adj_matrix, eps);
++            solver.heuristic_tree_min = vm["h-tree-min"].as<size_t>();
++            solver.promotion.min_size = vm["promote-min"].as<size_t>();
++            solver.promotion.mean_scan = vm["promote-scan"].as<uint64_t>();
++            solver(start, goal, mvh, solutions, timeout, sol_out, stats_out);
++
++            std::cout << "algorithm=L_NAMOA_DR_MVH_FAST"
++                      << "\tsource=" << start << "\ttarget=" << goal
++                      << "\tnum_solutions=" << solutions.size()
++                      << "\tnum_expansion=" << solver.num_expansion
++                      << "\tnum_generation=" << solver.num_generation
++                      << "\tnum_reinsertion=" << solver.num_reinsertion
++                      << "\tnum_full_dominance_check=" << solver.num_full_dominance_check
++                      << "\tnum_good_fallback=" << solver.num_good_fallback
++                      << "\tnum_bad_fallback=" << solver.num_bad_fallback
++                      << "\tnum_chooseh=" << solver.num_chooseh
++                      << "\tnum_frontier_trees=" << solver.num_frontier_trees
++                      << "\tnum_heuristic_trees=" << solver.num_heuristic_trees
++                      << "\tnum_redundant_heuristics=" << solver.num_redundant_heuristics
++                      << "\truntime_s=" << solver.runtime / CLOCKS_PER_SEC
++                      << "\ttime_limit_reached=" << solver.time_limit_reached
++                      << "\tcmpchk=" << solver.cmpchk
++                      << "\tcmpupd=" << solver.cmpupd
++                      << "\tcmp_chooseh=" << solver.cmp_chooseh
++                      << "\tcmp_full=" << solver.cmp_full
++                      << "\n";
++            solutions.clear();  // NodePtrs live in solver.node_pool
+         } else {
+             std::cerr << "error: unknown algorithm '" << algorithm << "'" << std::endl;
+             return 1;
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5d63db9..5129a4b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -24,6 +24,7 @@ add_library(fast_mvh_lib
+     src/src/mvh_kdtree.cpp
+     src/src/solvers/l_namoa_kdt_chooseh.cpp
+     src/src/solvers/l_namoa_dr_mvh_kdt.cpp
++    src/src/solvers/l_namoa_dr_mvh_fast.cpp
+     baselines/bridging-mvh-dr/src/parser.cpp
+     baselines/bridging-mvh-dr/src/parsers/multi_valued_heuristic_parser.cpp
+     baselines/bridging-mvh-dr/src/data_structures/adjacency_matrix.cpp
+diff --git a/src/include/fast_mvh/kdtree/hybrid_frontier.h b/src/include/fast_mvh/kdtree/hybrid_frontier.h
+new file mode 100644
+index 0000000..3a3d16a
+--- /dev/null
++++ b/src/include/fast_mvh/kdtree/hybrid_frontier.h
+@@ -0,0 +1,277 @@
++#ifndef FAST_MVH_HYBRID_FRONTIER_H
++#define FAST_MVH_HYBRID_FRONTIER_H
++
++// Truncated closed set G_cl^Tr(s) of L-NAMOA*dr-mvh with a size/cost-adaptive representation.
++//
++// * Small states: contiguous flat array (D-strided). One linear pass per update both removes the
++//   Tr-weakly-dominated points and recomputes max g_1 exactly (Maya keeps the list sorted, so her
++//   max is back()[0]; decisions only depend on the max, not on the order).
++// * Once the state holds >= min_size points AND the running mean scan length of flat queries reaches
++//   mean_scan comparisons, the set is promoted (once) into a dynamic (D-1)-d K-d tree
++//   (Shahaf: insertion + tombstones + amortized rebuild, lo/hi corner pruning), with
++//   dimension-sized nodes and iterative traversal.
++//
++// Both representations answer the same existence predicates over the same live set, so every
++// search decision is identical to Maya's linear list.
++
++#include <algorithm>
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++#include <vector>
++
++namespace fast_mvh {
++
++struct PromotionPolicy {
++    size_t min_size = 8;      // never promote below this many live points
++    uint64_t mean_scan = 64;  // promote when mean flat comparisons per query >= this
++};
++
++template <int D>
++class HybridFrontier {
++    static_assert(D >= 2, "need at least two objectives");
++    static constexpr int P = D - 1;
++
++public:
++    // Witness results for LOCALDOMCHECK.
++    enum Witness : int { NONE = 0, TR_ONLY = 1, FULL = 2 };
++
++    explicit HybridFrontier(PromotionPolicy pol = {}) : pol_(pol) {}
++
++    size_t size() const noexcept { return live_; }
++    size_t max_g0() const noexcept { return max_g0_; }
++    bool is_tree() const noexcept { return tree_; }
++
++    void clear() {
++        flat_.clear(); nodes_.clear(); root_ = NIL; tree_ = false;
++        live_ = total_ = built_ = max_g0_ = max_cnt_ = 0; q_n_ = q_cmp_ = 0;
++    }
++
++    // exists live p with p[k] <= q[k] for k = 1..D-1
++    bool dominated_tr(const size_t* q, uint64_t& cmp) const {
++        if (!tree_) {
++            const size_t* a = flat_.data();
++            const size_t n = flat_.size() / D;
++            uint64_t c = 0;
++            bool hit = false;
++            for (size_t i = 0; i < n; ++i, a += D) {
++                ++c;
++                if (le_tr(a, q)) { hit = true; break; }
++            }
++            cmp += c; ++q_n_; q_cmp_ += c;
++            return hit;
++        }
++        return tree_query<false>(q, cmp) != NONE;
++    }
++
++    // FULL: a live p with p <= q in all D coordinates exists (then q is dominated by an expanded path).
++    // TR_ONLY: only Tr-dominators with p_1 > q_1 exist.  NONE: not Tr-dominated.
++    Witness witness(const size_t* q, uint64_t& cmp) const {
++        if (!tree_) {
++            const size_t* a = flat_.data();
++            const size_t n = flat_.size() / D;
++            Witness res = NONE;
++            uint64_t c = 0;
++            for (size_t i = 0; i < n; ++i, a += D) {
++                ++c;
++                if (le_tr(a, q)) {
++                    if (a[0] <= q[0]) { res = FULL; break; }
++                    res = TR_ONLY;
++                }
++            }
++            cmp += c; ++q_n_; q_cmp_ += c;
++            return res;
++        }
++        return tree_query<true>(q, cmp);
++    }
++
++    // Remove live p with g[k] <= p[k] (k >= 1), then insert g (Maya's UPDATE, same live set).
++    void update(const size_t* g, uint64_t& cmp) {
++        if (!tree_) {
++            size_t w = 0, mx = g[0];
++            const size_t n = flat_.size() / D;
++            for (size_t i = 0; i < n; ++i) {
++                const size_t* a = &flat_[i * D];
++                ++cmp;
++                if (le_tr(g, a)) continue;
++                if (a[0] > mx) mx = a[0];
++                if (w != i) std::memmove(&flat_[w * D], a, sizeof(size_t) * D);
++                ++w;
++            }
++            flat_.resize(w * D);
++            flat_.insert(flat_.end(), g, g + D);
++            live_ = w + 1;
++            max_g0_ = mx;
++            maybe_promote();
++            return;
++        }
++        size_t killed_at_max = 0;
++        if (root_ != NIL) mark(g, cmp, killed_at_max);
++        insert(g);
++        if (g[0] > max_g0_) { max_g0_ = g[0]; max_cnt_ = 1; }
++        else {
++            if (g[0] == max_g0_) ++max_cnt_;
++            max_cnt_ -= std::min(max_cnt_, killed_at_max);
++            if (max_cnt_ == 0) recompute_max();
++        }
++        if (total_ > built_ + built_ / 4 + 64) rebuild();
++    }
++
++private:
++    static constexpr uint32_t NIL = UINT32_MAX;
++    struct Node {
++        size_t pt[D];
++        size_t lo[P];
++        size_t hi[P];
++        uint32_t l, r;
++        uint32_t axis;
++        uint32_t dead;
++    };
++
++    static bool le_tr(const size_t* a, const size_t* b) {
++        for (int k = 1; k < D; ++k) if (a[k] > b[k]) return false;
++        return true;
++    }
++
++    void maybe_promote() {
++        if (live_ < pol_.min_size || q_n_ < 16) return;
++        if (q_cmp_ >= pol_.mean_scan * q_n_) { promote(); return; }
++        if (q_n_ > 4096) { q_n_ >>= 1; q_cmp_ >>= 1; }  // track recent behaviour
++    }
++
++    void promote() {
++        std::vector<const size_t*> pts; pts.reserve(live_);
++        for (size_t i = 0; i < live_; ++i) pts.push_back(&flat_[i * D]);
++        nodes_.clear(); nodes_.reserve(live_ * 2);
++        root_ = build(pts, 0, pts.size(), 0);
++        tree_ = true; total_ = built_ = live_;
++        recompute_max();
++        std::vector<size_t>().swap(flat_);
++    }
++
++    template <bool WITNESS>
++    Witness tree_query(const size_t* q, uint64_t& cmp) const {
++        if (root_ == NIL) return NONE;
++        Witness res = NONE;
++        stack_.clear(); stack_.push_back(root_);
++        while (!stack_.empty()) {
++            const Node& n = nodes_[stack_.back()]; stack_.pop_back();
++            bool prune = false;
++            for (int k = 0; k < P; ++k) if (n.lo[k] > q[k + 1]) { prune = true; break; }
++            if (prune) continue;
++            if (!n.dead) {
++                ++cmp;
++                if (le_tr(n.pt, q)) {
++                    if (!WITNESS || n.pt[0] <= q[0]) return WITNESS ? FULL : TR_ONLY;
++                    res = TR_ONLY;
++                }
++            }
++            if (n.r != NIL) stack_.push_back(n.r);
++            if (n.l != NIL) stack_.push_back(n.l);
++        }
++        return res;
++    }
++
++    void mark(const size_t* g, uint64_t& cmp, size_t& killed_at_max) {
++        stack_.clear(); stack_.push_back(root_);
++        while (!stack_.empty()) {
++            Node& n = nodes_[stack_.back()]; stack_.pop_back();
++            bool prune = false;
++            for (int k = 0; k < P; ++k) if (n.hi[k] < g[k + 1]) { prune = true; break; }
++            if (prune) continue;
++            if (!n.dead) {
++                ++cmp;
++                if (le_tr(g, n.pt)) { n.dead = 1; --live_; if (n.pt[0] == max_g0_) ++killed_at_max; }
++            }
++            if (n.r != NIL) stack_.push_back(n.r);
++            if (n.l != NIL) stack_.push_back(n.l);
++        }
++    }
++
++    static void init_node(Node& n, const size_t* p, uint32_t axis) {
++        std::memcpy(n.pt, p, sizeof(size_t) * D);
++        for (int k = 0; k < P; ++k) n.lo[k] = n.hi[k] = p[k + 1];
++        n.l = n.r = NIL; n.axis = axis; n.dead = 0;
++    }
++
++    void insert(const size_t* p) {
++        ++total_; ++live_;
++        if (root_ == NIL) { nodes_.emplace_back(); init_node(nodes_.back(), p, 0); root_ = 0; return; }
++        uint32_t cur = root_;
++        while (true) {
++            Node& n = nodes_[cur];
++            for (int k = 0; k < P; ++k) {
++                if (p[k + 1] < n.lo[k]) n.lo[k] = p[k + 1];
++                if (p[k + 1] > n.hi[k]) n.hi[k] = p[k + 1];
++            }
++            const uint32_t a = n.axis;
++            const bool left = p[a + 1] < n.pt[a + 1];
++            const uint32_t c = left ? n.l : n.r;
++            if (c == NIL) {
++                const uint32_t id = static_cast<uint32_t>(nodes_.size());
++                nodes_.emplace_back();  // may reallocate: re-index the parent below
++                if (left) nodes_[cur].l = id; else nodes_[cur].r = id;
++                init_node(nodes_[id], p, (a + 1) % P);
++                return;
++            }
++            cur = c;
++        }
++    }
++
++    uint32_t build(std::vector<const size_t*>& pts, size_t lo, size_t hi, int depth) {
++        if (lo >= hi) return NIL;
++        const uint32_t axis = static_cast<uint32_t>(depth % P);
++        const size_t mid = lo + (hi - lo) / 2;
++        std::nth_element(pts.begin() + lo, pts.begin() + mid, pts.begin() + hi,
++                         [axis](const size_t* a, const size_t* b) { return a[axis + 1] < b[axis + 1]; });
++        const uint32_t id = static_cast<uint32_t>(nodes_.size());
++        nodes_.emplace_back();
++        init_node(nodes_[id], pts[mid], axis);
++        const uint32_t l = build(pts, lo, mid, depth + 1);
++        const uint32_t r = build(pts, mid + 1, hi, depth + 1);
++        Node& n = nodes_[id];
++        n.l = l; n.r = r;
++        for (uint32_t c : {l, r}) {
++            if (c == NIL) continue;
++            for (int k = 0; k < P; ++k) {
++                n.lo[k] = std::min(n.lo[k], nodes_[c].lo[k]);
++                n.hi[k] = std::max(n.hi[k], nodes_[c].hi[k]);
++            }
++        }
++        return id;
++    }
++
++    void rebuild() {
++        std::vector<size_t> buf; buf.reserve(live_ * D);
++        for (const Node& n : nodes_) if (!n.dead) buf.insert(buf.end(), n.pt, n.pt + D);
++        std::vector<const size_t*> pts; pts.reserve(live_);
++        for (size_t i = 0; i < buf.size(); i += D) pts.push_back(&buf[i]);
++        nodes_.clear();
++        root_ = build(pts, 0, pts.size(), 0);
++        total_ = built_ = live_ = pts.size();
++        recompute_max();
++    }
++
++    void recompute_max() {
++        max_g0_ = 0; max_cnt_ = 0;
++        for (const Node& n : nodes_) {
++            if (n.dead) continue;
++            if (n.pt[0] > max_g0_) { max_g0_ = n.pt[0]; max_cnt_ = 1; }
++            else if (n.pt[0] == max_g0_) ++max_cnt_;
++        }
++    }
++
++    PromotionPolicy pol_;
++    std::vector<size_t> flat_;
++    std::vector<Node> nodes_;
++    mutable std::vector<uint32_t> stack_;
++    uint32_t root_ = NIL;
++    bool tree_ = false;
++    size_t live_ = 0, total_ = 0, built_ = 0;
++    size_t max_g0_ = 0, max_cnt_ = 0;
++    mutable uint64_t q_n_ = 0, q_cmp_ = 0;
++};
++
++}  // namespace fast_mvh
++
++#endif  // FAST_MVH_HYBRID_FRONTIER_H
+diff --git a/src/include/fast_mvh/heuristic_index.h b/src/include/fast_mvh/heuristic_index.h
+new file mode 100644
+index 0000000..537e922
+--- /dev/null
++++ b/src/include/fast_mvh/heuristic_index.h
+@@ -0,0 +1,174 @@
++#ifndef FAST_MVH_HEURISTIC_INDEX_H
++#define FAST_MVH_HEURISTIC_INDEX_H
++
++// Per-state index over the static heuristic set H(s) for CHOOSEH:
++//   return min{ i >= start : Tr(g) + Tr(h_i) is not weakly dominated by T }  (|H(s)| if none),
++// i.e. exactly Maya's lexicographic-index semantics.
++//
++// Built lazily on the first CHOOSEH at s. Three mechanisms, all exact:
++//  1. Contiguous copy of Tr(H(s)) (no vector<vector> pointer chasing).
++//  2. Redundancy pointers: rptr[j] = 1 + max{i < j : Tr(h_i) <= Tr(h_j)}. If h_i is already refuted
++//     (t <= g+h_i for some t in T) then t <= g+h_j, so h_j is refuted without touching T.
++//     A 48-element prefix probe skips the O(|H(s)|^2) construction for antichain MVHs (e.g. APEX).
++//  3. Roi's static (D-1)-d K-d tree (median split on max spread, N.min/N.max boxes, sorted
++//     per-node index lists) -- only built when |H(s)| >= tree_min. Traversal: test h[start] first
++//     (fast path), then top-down with index-range pruning (node.max_idx < start, node.min_idx >= best),
++//     children in min_idx order, Rule 1 (discard: g+N.min dominated), Rule 2 (accept: g+N.max not
++//     dominated -> smallest index >= start in the node).
++
++#include <algorithm>
++#include <cstddef>
++#include <cstdint>
++#include <limits>
++#include <vector>
++
++namespace fast_mvh {
++
++template <int D>
++class HeuristicIndex {
++    static constexpr int P = D - 1;
++    static constexpr size_t INF = std::numeric_limits<size_t>::max();
++
++public:
++    bool loaded() const noexcept { return loaded_; }
++    size_t size() const noexcept { return K_; }
++    bool has_tree() const noexcept { return !rn_.empty(); }
++    size_t redundant() const noexcept { return n_redundant_; }
++
++    void build(const std::vector<std::vector<size_t>>& H, size_t tree_min, size_t leaf_size = 8) {
++        K_ = H.size();
++        htr_.resize(K_ * P);
++        for (size_t i = 0; i < K_; ++i)
++            for (int k = 0; k < P; ++k) htr_[i * P + k] = H[i][k + 1];
++        build_rptr();
++        if (K_ >= tree_min && K_ > 1) build_roi(leaf_size);
++        loaded_ = true;
++    }
++
++    // dom(q) must answer Dom(T, q) for a D-array q (q[0] ignored).
++    // prev_refuted: h[start-1] is already known to be dominated (reinsertion after a global check).
++    template <class DomT>
++    size_t choose(const std::vector<size_t>& g, size_t start, bool prev_refuted, DomT&& dom, uint64_t& nodes_visited) const {
++        if (start >= K_) return K_;
++        size_t q[D]; q[0] = 0;
++        auto refuted = [&](size_t i) {
++            const size_t* h = &htr_[i * P];
++            for (int k = 0; k < P; ++k) q[k + 1] = g[k + 1] + h[k];
++            return dom(q);
++        };
++        if (rn_.empty()) {
++            const size_t lo1 = prev_refuted ? start : start + 1;
++            for (size_t i = start; i < K_; ++i) {
++                if (rptr_[i] >= lo1) continue;
++                if (!refuted(i)) return i;
++            }
++            return K_;
++        }
++        if (!refuted(start)) return start;  // fast path: current candidate is valid, skip the tree
++        const size_t from = start + 1;
++        if (from >= K_) return K_;
++        size_t best = INF;
++        auto box = [&](const size_t* b) {
++            for (int k = 0; k < P; ++k) q[k + 1] = g[k + 1] + b[k];
++            return dom(q);
++        };
++        stk_.clear(); stk_.push_back(0);
++        while (!stk_.empty()) {
++            const uint32_t id = stk_.back(); stk_.pop_back();
++            const RNode& nd = rn_[id];
++            ++nodes_visited;
++            if (nd.max_idx < from || nd.min_idx >= best) continue;
++            if (box(&rmin_[id * P])) continue;                       // Rule 1: whole subtree refuted
++            if (!box(&rmax_[id * P])) {                              // Rule 2: whole subtree valid
++                auto b = ridx_.begin() + nd.ioff, e = b + nd.icnt;
++                auto it = std::lower_bound(b, e, static_cast<uint32_t>(from));
++                if (it != e && *it < best) best = *it;
++                continue;
++            }
++            if (nd.l == NIL) {
++                for (uint32_t j = 0; j < nd.icnt; ++j) {                // leaf list is sorted ascending
++                    const uint32_t i = ridx_[nd.ioff + j];
++                    if (i < from) continue;
++                    if (i >= best) break;
++                    if (!refuted(i)) { best = i; break; }
++                }
++                continue;
++            }
++            uint32_t a = nd.l, c = nd.r;
++            if (rn_[c].min_idx < rn_[a].min_idx) std::swap(a, c);
++            stk_.push_back(c); stk_.push_back(a);                     // visit smaller min_idx first
++        }
++        return best == INF ? K_ : best;
++    }
++
++private:
++    static constexpr uint32_t NIL = UINT32_MAX;
++    struct RNode { uint32_t l, r, min_idx, max_idx, ioff, icnt; };
++
++    void build_rptr() {
++        rptr_.assign(K_, 0); n_redundant_ = 0;
++        const size_t probe = std::min<size_t>(K_, 48);
++        for (size_t j = 1; j < K_; ++j) {
++            if (j == probe && n_redundant_ == 0) return;  // antichain prefix: skip the quadratic pass
++            const size_t* b = &htr_[j * P];
++            for (size_t i = j; i-- > 0;) {
++                const size_t* a = &htr_[i * P];
++                int k = 0; for (; k < P; ++k) if (a[k] > b[k]) break;
++                if (k == P) { rptr_[j] = static_cast<uint32_t>(i + 1); ++n_redundant_; break; }
++            }
++        }
++    }
++
++    void build_roi(size_t leaf) {
++        std::vector<uint32_t> items(K_);
++        for (size_t i = 0; i < K_; ++i) items[i] = static_cast<uint32_t>(i);
++        rn_.clear(); rmin_.clear(); rmax_.clear(); ridx_.clear();
++        roi_rec(items, 0, K_, leaf);
++    }
++
++    uint32_t roi_rec(std::vector<uint32_t>& it, size_t lo, size_t hi, size_t leaf) {
++        const uint32_t id = static_cast<uint32_t>(rn_.size());
++        rn_.push_back({NIL, NIL, UINT32_MAX, 0, 0, 0});
++        rmin_.resize(rn_.size() * P, INF); rmax_.resize(rn_.size() * P, 0);
++        RNode nd{NIL, NIL, UINT32_MAX, 0, 0, 0};
++        for (size_t j = lo; j < hi; ++j) {
++            const uint32_t i = it[j];
++            nd.min_idx = std::min(nd.min_idx, i); nd.max_idx = std::max(nd.max_idx, i);
++            for (int k = 0; k < P; ++k) {
++                rmin_[id * P + k] = std::min(rmin_[id * P + k], htr_[i * P + k]);
++                rmax_[id * P + k] = std::max(rmax_[id * P + k], htr_[i * P + k]);
++            }
++        }
++        std::vector<uint32_t> s(it.begin() + lo, it.begin() + hi);
++        std::sort(s.begin(), s.end());
++        nd.ioff = static_cast<uint32_t>(ridx_.size()); nd.icnt = static_cast<uint32_t>(s.size());
++        ridx_.insert(ridx_.end(), s.begin(), s.end());
++        if (hi - lo <= leaf) { rn_[id] = nd; return id; }
++        int sd = 0; size_t spread = 0;
++        for (int k = 0; k < P; ++k) {
++            const size_t sp = rmax_[id * P + k] - rmin_[id * P + k];
++            if (sp > spread) { spread = sp; sd = k; }
++        }
++        const size_t mid = lo + (hi - lo) / 2;
++        std::nth_element(it.begin() + lo, it.begin() + mid, it.begin() + hi,
++                         [&](uint32_t a, uint32_t b) { return htr_[a * P + sd] < htr_[b * P + sd]; });
++        rn_[id] = nd;
++        const uint32_t l = roi_rec(it, lo, mid, leaf);
++        const uint32_t r = roi_rec(it, mid, hi, leaf);
++        rn_[id].l = l; rn_[id].r = r;
++        return id;
++    }
++
++    bool loaded_ = false;
++    size_t K_ = 0, n_redundant_ = 0;
++    std::vector<size_t> htr_;
++    std::vector<uint32_t> rptr_;
++    std::vector<RNode> rn_;
++    std::vector<size_t> rmin_, rmax_;
++    std::vector<uint32_t> ridx_;
++    mutable std::vector<uint32_t> stk_;
++};
++
++}  // namespace fast_mvh
++
++#endif  // FAST_MVH_HEURISTIC_INDEX_H
+diff --git a/src/include/fast_mvh/solvers/l_namoa_dr_mvh_fast.h b/src/include/fast_mvh/solvers/l_namoa_dr_mvh_fast.h
+new file mode 100644
+index 0000000..a7aeac3
+--- /dev/null
++++ b/src/include/fast_mvh/solvers/l_namoa_dr_mvh_fast.h
+@@ -0,0 +1,75 @@
++#ifndef L_NAMOA_DR_MVH_FAST_H
++#define L_NAMOA_DR_MVH_FAST_H
++
++// Hybrid integration layer (Maya + Shahaf + Roi) for L-NAMOA*dr-mvh.
++// Same OPEN (NodePtr + CompareNodeByFValue), same push/pop sequence and same predicates as
++// Maya's L_NAMOA_DR_MVH, hence identical expansions and bit-identical Pareto fronts.
++//
++// Integration decisions (all measured, see benchmarks/runs/<ts>/REPORT.md):
++//  * G_cl^Tr(s) and T = G_cl^Tr(goal): fast_mvh::HybridFrontier (flat -> K-d tree on measured scan cost).
++//  * G_cl(s): contiguous D-strided array (fallback scans without NodePtr indirection).
++//  * LOCALDOMCHECK: witness query -> a full-D witness settles "dominated" without the fallback scan.
++//  * Generation: LOCALDOMCHECK before CHOOSEH (both are side-effect-free predicates, so the
++//    conjunction and therefore the pushed node are unchanged; CHOOSEH is skipped for locally
++//    dominated successors).
++//  * CHOOSEH: fast_mvh::HeuristicIndex (contiguous Tr(H(s)), redundancy pointers, Roi tree only
++//    for |H(s)| >= heuristic_tree_min).
++
++#include "data_structures/adjacency_matrix.h"
++#include "definitions.h"
++#include "solvers/abstract_solver.h"
++#include "fast_mvh/heuristic_index.h"
++#include "fast_mvh/kdtree/hybrid_frontier.h"
++
++#include <iostream>
++#include <limits>
++#include <memory_resource>
++#include <string>
++#include <vector>
++
++class L_NAMOA_DR_MVH_FAST : public AbstractSolver {
++public:
++    // Tunables (defaults from the empirical study).
++    fast_mvh::PromotionPolicy promotion{};   // min_size = 8, mean_scan = 64
++    size_t heuristic_tree_min = std::numeric_limits<size_t>::max();  // Roi tree off by default
++    size_t heuristic_leaf_size = 8;
++
++    // Instrumentation.
++    uint64_t cmpchk = 0;       // point comparisons in local/global dominance queries
++    uint64_t cmpupd = 0;       // point comparisons in frontier updates
++    uint64_t cmp_chooseh = 0;  // point comparisons in CHOOSEH target queries
++    uint64_t cmp_full = 0;     // point comparisons in full-D fallback scans
++    size_t num_reinsertion = 0, num_full_dominance_check = 0, num_good_fallback = 0, num_bad_fallback = 0;
++    size_t num_chooseh = 0, num_frontier_trees = 0, num_heuristic_trees = 0, num_redundant_heuristics = 0;
++    uint64_t num_htree_nodes = 0;
++
++    L_NAMOA_DR_MVH_FAST(const AdjacencyMatrix& adj_matrix, const EPS& eps) : AbstractSolver(adj_matrix, eps) {}
++
++    std::string get_solver_name() override { return "L_NAMOA_DR_MVH_FAST"; }
++
++    void init_search() override {
++        AbstractSolver::init_search();
++        cmpchk = cmpupd = cmp_chooseh = cmp_full = 0;
++        num_reinsertion = num_full_dominance_check = num_good_fallback = num_bad_fallback = 0;
++        num_chooseh = num_frontier_trees = num_heuristic_trees = num_redundant_heuristics = 0;
++        num_htree_nodes = 0;
++    }
++
++    void operator()(const size_t& source, const size_t& target, const MultiValuedHeuristic& heuristic,
++                    SolutionSet& solutions, unsigned int time_limit = 0,
++                    const std::string& solutions_file = "", const std::string& stats_file = "");
++
++    void operator()(const size_t&, const size_t&, const Heuristic&, SolutionSet&, unsigned) override {
++        std::cout << "Single-valued heuristic not supported in MVH solver." << std::endl;
++    }
++
++    // Node pool must outlive every NodePtr handed out through `solutions`.
++    std::pmr::unsynchronized_pool_resource node_pool;
++
++private:
++    template <int D>
++    void run(size_t source, size_t target, const MultiValuedHeuristic& heuristic, SolutionSet& solutions,
++             unsigned int time_limit);
++};
++
++#endif  // L_NAMOA_DR_MVH_FAST_H
+diff --git a/src/src/solvers/l_namoa_dr_mvh_fast.cpp b/src/src/solvers/l_namoa_dr_mvh_fast.cpp
+new file mode 100644
+index 0000000..da9c7f9
+--- /dev/null
++++ b/src/src/solvers/l_namoa_dr_mvh_fast.cpp
+@@ -0,0 +1,126 @@
++#include "fast_mvh/solvers/l_namoa_dr_mvh_fast.h"
++
++#include <ctime>
++#include <fstream>
++#include <queue>
++#include <stdexcept>
++
++template <int D>
++void L_NAMOA_DR_MVH_FAST::run(size_t source, size_t target, const MultiValuedHeuristic& heuristic,
++                              SolutionSet& solutions, unsigned int time_limit) {
++    using Frontier = fast_mvh::HybridFrontier<D>;
++    const size_t n_states = adj_matrix.size() + 1;
++    std::vector<Frontier> front(n_states, Frontier(promotion));
++    std::vector<std::vector<size_t>> gcl(n_states);  // G_cl(s), D-strided
++    std::vector<fast_mvh::HeuristicIndex<D>> hidx(heuristic.size());
++
++    Frontier& T = front[target];
++    auto domT = [&](const size_t* q) { return T.dominated_tr(q, cmp_chooseh); };
++
++    auto chooseh = [&](size_t s, const std::vector<size_t>& g, size_t start, bool prev_refuted) -> size_t {
++        ++num_chooseh;
++        const auto& Hs = heuristic[s];
++        if (start >= Hs.size()) return Hs.size();
++        if (T.size() == 0) return start;
++        auto& ix = hidx[s];
++        if (!ix.loaded()) {
++            ix.build(Hs, heuristic_tree_min, heuristic_leaf_size);
++            num_heuristic_trees += ix.has_tree();
++            num_redundant_heuristics += ix.redundant();
++        }
++        return ix.choose(g, start, prev_refuted, domT, num_htree_nodes);
++    };
++
++    auto local_check = [&](const std::vector<size_t>& g, size_t id) -> bool {
++        const auto w = front[id].witness(g.data(), cmpchk);
++        if (w == Frontier::NONE) return false;
++        if (w == Frontier::FULL) return true;
++        if (front[id].max_g0() <= g[0]) return true;  // t-discarding
++        ++num_full_dominance_check;
++        const auto& G = gcl[id];
++        const size_t* a = G.data();
++        for (size_t i = 0, n = G.size() / D; i < n; ++i, a += D) {
++            ++cmp_full;
++            int k = 0;
++            for (; k < D; ++k) if (g[k] < a[k]) break;
++            if (k == D) { ++num_bad_fallback; return true; }
++        }
++        ++num_good_fallback;
++        return false;
++    };
++
++    std::pmr::polymorphic_allocator<Node> alloc{&node_pool};
++    std::priority_queue<NodePtr, std::vector<NodePtr>, CompareNodeByFValue> open;
++    const std::vector<size_t> zero(D, 0);
++    open.push(std::allocate_shared<Node>(alloc, source, zero, zero, nullptr, zero));
++
++    while (!open.empty()) {
++        if (time_limit > 0 && (std::clock() - start_time) / CLOCKS_PER_SEC >= time_limit) {
++            time_limit_reached = true;
++            break;
++        }
++        auto node = open.top();
++        open.pop();
++        ++num_generation;
++
++        if (T.dominated_tr(node->f.data(), cmpchk)) {  // global dominance check
++            const size_t r = chooseh(node->id, node->g, node->h_idx + 1, true);
++            if (r >= heuristic[node->id].size()) continue;
++            open.push(std::allocate_shared<Node>(alloc, node->id, node->g, heuristic[node->id][r],
++                                                 node->parent, node->c, r));
++            ++num_reinsertion;
++            continue;
++        }
++        if (local_check(node->g, node->id)) continue;
++
++        front[node->id].update(node->g.data(), cmpupd);
++        gcl[node->id].insert(gcl[node->id].end(), node->g.begin(), node->g.end());
++        ++num_expansion;
++
++        if (node->id == target) {
++            solutions.push_back(node);
++            continue;
++        }
++        for (const auto& e : adj_matrix[node->id]) {
++            std::vector<size_t> ng(node->g);
++            for (int i = 0; i < D; ++i) ng[i] += e.cost[i];
++            if (local_check(ng, e.target)) continue;
++            const size_t r = chooseh(e.target, ng, 0, false);
++            if (r >= heuristic[e.target].size()) continue;
++            open.push(std::allocate_shared<Node>(alloc, e.target, ng, heuristic[e.target][r], node, e.cost, r));
++        }
++    }
++    for (const auto& f : front) num_frontier_trees += f.is_tree();
++}
++
++void L_NAMOA_DR_MVH_FAST::operator()(const size_t& source, const size_t& target,
++                                     const MultiValuedHeuristic& heuristic, SolutionSet& solutions,
++                                     unsigned int time_limit, const std::string& solutions_file,
++                                     const std::string& stats_file) {
++    init_search();
++    start_time = std::clock();
++    switch (adj_matrix.num_of_objectives) {
++        case 2: run<2>(source, target, heuristic, solutions, time_limit); break;
++        case 3: run<3>(source, target, heuristic, solutions, time_limit); break;
++        case 4: run<4>(source, target, heuristic, solutions, time_limit); break;
++        case 5: run<5>(source, target, heuristic, solutions, time_limit); break;
++        case 6: run<6>(source, target, heuristic, solutions, time_limit); break;
++        case 7: run<7>(source, target, heuristic, solutions, time_limit); break;
++        case 8: run<8>(source, target, heuristic, solutions, time_limit); break;
++        default: throw std::invalid_argument("L_NAMOA_DR_MVH_FAST supports 2..8 objectives");
++    }
++    runtime = static_cast<float>(std::clock() - start_time);
++
++    if (!solutions_file.empty()) {
++        std::ofstream out(solutions_file);
++        for (const auto& sol : solutions) {
++            for (size_t i = 0; i < sol->g.size(); ++i) { if (i) out << ","; out << sol->g[i]; }
++            out << "\n";
++        }
++    }
++    if (!stats_file.empty()) {
++        std::ofstream out(stats_file);
++        out << runtime / CLOCKS_PER_SEC << "\t" << num_expansion << "\t" << num_generation << "\t"
++            << cmpchk << "\t" << cmpupd << "\n";
++    }
++}
