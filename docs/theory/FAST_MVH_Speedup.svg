@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 175" font-family="Times New Roman,serif" font-size="11">
+<path d="M42 10V143H328" fill="none" stroke="#222"/>
+<path d="M39 143.0H328" stroke="#ddd" stroke-width=".6"/><text x="37" y="146.5" text-anchor="end">1</text>
+<path d="M39 111.3H328" stroke="#ddd" stroke-width=".6"/><text x="37" y="114.8" text-anchor="end">3</text>
+<path d="M39 76.5H328" stroke="#ddd" stroke-width=".6"/><text x="37" y="80.0" text-anchor="end">10</text>
+<path d="M39 44.8H328" stroke="#ddd" stroke-width=".6"/><text x="37" y="48.3" text-anchor="end">30</text>
+<path d="M39 10.0H328" stroke="#ddd" stroke-width=".6"/><text x="37" y="13.5" text-anchor="end">100</text>
+<text x="42.0" y="156" text-anchor="middle">3</text>
+<text x="99.2" y="156" text-anchor="middle">4</text>
+<text x="156.4" y="156" text-anchor="middle">5</text>
+<text x="213.6" y="156" text-anchor="middle">6</text>
+<text x="270.8" y="156" text-anchor="middle">7</text>
+<text x="328.0" y="156" text-anchor="middle">8</text>
+<text x="185" y="171" text-anchor="middle">objectives M</text>
+<text transform="translate(11 76) rotate(-90)" text-anchor="middle">speedup over reference</text>
+<circle cx="36.0" cy="126.0" r="3.2" fill="#111"/>
+<circle cx="93.2" cy="95.9" r="3.2" fill="#111"/>
+<circle cx="150.4" cy="90.8" r="3.2" fill="#111"/>
+<circle cx="207.6" cy="36.9" r="3.2" fill="#111"/>
+<circle cx="207.6" cy="27.4" r="3.2" fill="#111"/>
+<circle cx="264.8" cy="60.0" r="3.2" fill="#111"/>
+<circle cx="264.8" cy="52.4" r="3.2" fill="#111"/>
+<circle cx="322.0" cy="49.1" r="3.2" fill="#111"/>
+<rect x="96.2" y="75.9" width="6" height="6" fill="#777" stroke="#111" stroke-width=".6"/>
+<rect x="96.2" y="35.0" width="6" height="6" fill="#777" stroke="#111" stroke-width=".6"/>
+<rect x="153.4" y="38.4" width="6" height="6" fill="#777" stroke="#111" stroke-width=".6"/>
+<rect x="210.6" y="12.7" width="6" height="6" fill="#777" stroke="#111" stroke-width=".6"/>
+<path d="M48.0 108.5l3.6 6.4h-7.2z" fill="#fff" stroke="#111" stroke-width="1"/>
+<path d="M48.0 98.4l3.6 6.4h-7.2z" fill="#fff" stroke="#111" stroke-width="1"/>
+<path d="M105.2 40.3l3.6 6.4h-7.2z" fill="#fff" stroke="#111" stroke-width="1"/>
+<path d="M162.4 43.3l3.6 6.4h-7.2z" fill="#fff" stroke="#111" stroke-width="1"/>
+<path d="M105.2 43.6l3.6 6.4h-7.2z" fill="#fff" stroke="#111" stroke-width="1" stroke-dasharray="1.5 1"/><path d="M105.2 42.4v-9m-2.5 3l2.5-3 2.5 3" fill="none" stroke="#111" stroke-width=".8"/>
+<path d="M162.4 39.7l3.6 6.4h-7.2z" fill="#fff" stroke="#111" stroke-width="1" stroke-dasharray="1.5 1"/><path d="M162.4 38.5v-9m-2.5 3l2.5-3 2.5 3" fill="none" stroke="#111" stroke-width=".8"/>
+<circle cx="187.9" cy="93.2" r="3.2" fill="#111"/>
+<text x="196.86" y="96.74549620408769">grids</text>
+<rect x="184.9" y="103.2" width="6" height="6" fill="#777" stroke="#111" stroke-width=".6"/>
+<text x="196.86" y="109.74549620408769">New York</text>
+<path d="M187.9 115.4l3.6 6.4h-7.2z" fill="#fff" stroke="#111" stroke-width="1"/>
+<text x="196.86" y="122.74549620408769">Bay Area</text>
+<path d="M187.9 128.4l3.6 6.4h-7.2z" fill="#fff" stroke="#111" stroke-width="1" stroke-dasharray="1.5 1"/>
+<text x="196.86" y="135.7454962040877">Bay, lower bound</text>
+</svg>
