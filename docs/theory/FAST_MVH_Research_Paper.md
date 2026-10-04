@@ -126,7 +126,7 @@ FAST-MVH keeps a *residue* $R(s)\subseteq C(s)$. When an expansion with cost $g$
 
 ### 3.3 Heuristic selection
 
-$\mathrm{ChooseH}(s,g,j,b)$ returns the first index $i\ge j$ whose vector the goal frontier does not refute, or $\bot$. The *redundancy pointer* $\rho_s(i)$ is the largest $i'<i$ with $\operatorname{Tr}(h^{i'})\preceq\operatorname{Tr}(h^i)$, or $0$ if none exists. Pointers are computed once per state, when $H(s)$ is first used.
+$\mathrm{ChooseH}(s,g,j,b)$ returns the first index $i\ge j$ whose vector the goal frontier does not refute, or $\bot$. Its outer loop is that of Wolff et al.: candidates are scanned in the lexicographic order fixed by $H(s)$, and the first unrefuted one is taken, because that order is what makes $i(n)$ monotone non-decreasing along any OPEN entry and admissibility carry through dimensionality reduction. FAST-MVH changes nothing about which index is returned. What it changes is how many of the $k(s)$ candidates a call actually tests. The *redundancy pointer* $\rho_s(i)$ is the largest $i'<i$ with $\operatorname{Tr}(h^{i'})\preceq\operatorname{Tr}(h^i)$, or $0$ if none exists, and is computed once per state, when $H(s)$ is first used, by a single lexicographic pass over $\operatorname{Tr}(H(s))$. It is this pointer, together with the reordering described after Algorithm 1, that the baseline does not have: Wolff et al.'s $\mathrm{ChooseH}$ issues one $\mathrm{GoalDom}$ query per candidate until it finds an unrefuted one, in both the goal-promotion and the generation call; FAST-MVH issues a query only for a candidate not already known to be refuted by an earlier, truncation-dominating candidate.
 
 <div class="algorithm">
 
@@ -146,7 +146,7 @@ $\mathrm{ChooseH}(s,g,j,b)$ returns the first index $i\ge j$ whose vector the go
 
 </div>
 
-Candidates are examined in lexicographic order. Line 5 skips only candidates already known to be refuted; omitting a pointer loses a shortcut, never an answer.
+Candidates are examined in lexicographic order, as in Wolff et al. Line 5 skips only candidates already known to be refuted; omitting a pointer loses a shortcut, never an answer, so Algorithm 3 is a strict refinement of the baseline's $\mathrm{ChooseH}$: same inputs, same output, fewer queries. On states where $H(s)$ holds hundreds of truncation-redundant candidates, a single call can fall from $O(k(s))$ queries to O(1), each of which would otherwise have walked the goal frontier; Section 5.3 returns to why indexing $H(s)$ itself does not improve on this further.
 
 ## 4 Correctness
 
@@ -170,7 +170,7 @@ Completeness and Pareto optimality therefore follow from those of $L$-NAMOA$^*_{
 
 ## 5 Engineering the Dominance Tests
 
-Theorem 1 fixes what FAST-MVH computes. This section describes how the cost of computing it is kept low. None of the parameters below affects the solutions.
+Theorem 1 fixes what FAST-MVH computes: node-for-node, it is $L$-NAMOA$^*_{dr}$-mvh. Every gain in Section 6 is therefore a constant-factor gain on the same search tree, won by changing four things the baseline does unindexed: (i) frontier queries, which the baseline answers by a linear scan of $F(s)$, become $\mathrm{Find}$ traversals of an adaptively promoted k-d tree (5.1); (ii) the full-dimensional fallback, which the baseline answers by rescanning $C(s)$ under a cached maximum, is answered from a provably sufficient residue $R(s)$ indexed by a forest of static trees (5.2); (iii) heuristic selection, which the baseline performs by querying every candidate up to the first unrefuted one, is pruned by the redundancy pointers of Section 3.3 before a query is ever issued; and (iv) node and heuristic storage move from pointer-linked records to contiguous arrays (5.4). None of the four changes the sequence of expansions, insertions, or solutions; each only lowers the constant in front of a cost that the baseline already pays. The following subsections detail each mechanism, including one, heuristic-set indexing, that we implemented and discarded (5.3), and one, full-dimensional fallback caching, that an earlier design of FAST-MVH used and the residue forest has since made obsolete (5.2).
 
 ### 5.1 Adaptive frontiers
 
@@ -182,7 +182,7 @@ The rule tracks measured cost rather than $M$. On a $10\times10$ grid with three
 
 The fallback is rare per query but not rare per search. On dense instances $R(s)$ grows to between 60% and 93% of all expanded vectors (Section 6.2), and in the worst cases tens of thousands of fallback queries reach it. A linear scan would cost $|R(s)|$ comparisons each time, and $R(s)$ only grows. The fallback must therefore be indexed.
 
-$R(s)$ is append-only, so it suits the logarithmic method of Bentley and Saxe (1980). New vectors are appended to an unindexed buffer. Nothing is built until a query finds 64 buffered vectors. The buffer then becomes a static implicit k-d tree: a contiguous block permuted so that each median sits at the middle of its range, with axes cycling through all $M$ coordinates and a lower corner stored per subtree. A block is merged with its predecessor while the predecessor is less than twice its size, so a state holds $O(\log|R(s)|)$ blocks and each vector is rebuilt $O(\log|R(s)|)$ times. A query scans the buffer and then searches the blocks, which are fixed and contiguous. States that never fall back never build a tree, so instances without fallbacks pay nothing for the mechanism.
+$R(s)$ is append-only, so it suits the logarithmic method of Bentley and Saxe (1980). New vectors are appended to an unindexed buffer. Nothing is built until a query finds 64 buffered vectors. The buffer then becomes a static implicit k-d tree: a contiguous block permuted so that each median sits at the middle of its range, with axes cycling through all $M$ coordinates and a lower corner stored per subtree. A block is merged with its predecessor while the predecessor is less than twice its size, so a state holds $O(\log|R(s)|)$ blocks and each vector is rebuilt $O(\log|R(s)|)$ times. A query scans the buffer and then searches the blocks, which are fixed and contiguous. States that never fall back never build a tree, so instances without fallbacks pay nothing for the mechanism. The effect is large where the residue is large: on Grid $6\times6$, $\rho=-0.2$ at eight objectives, 2,203,027 full-dimensional comparisons answer 10,701 fallback queries against a residue that has absorbed 74,271 vectors by the end of the run — 206 comparisons per query against a forest that a linear scan would need to walk almost entirely (Table 2).
 
 **Remark (fallback caching).** An earlier design of FAST-MVH answered the fallback by scanning all of $C(s)$, guarded by an exactly maintained maximum first coordinate of $F(s)$, and cached for each candidate the vector that had last refuted it, so that a repeated candidate could be rejected without a scan. The cache was effective, about 10–18% faster on the largest instances, because fallback queries recur at the same states with similar costs. It reduced the number of scans, however, not their length: every miss still paid $|C(s)|$ comparisons. The residue forest removes the cause rather than the symptom. Every fallback query is now exact and sub-linear, the residue excludes both the live frontier and vectors dominated by their evictor, and neither the cache nor the separate maximum earns its keep. Neither is part of the method evaluated here.
 
@@ -259,36 +259,43 @@ The gain is not a function of $M$ alone. Grid $8\times8$ in five objectives retu
 
 <div class="tablebox">
 
-**Table 2. The full-dimensional fallback.** Fallbacks counts local tests that reach line 15 of Algorithm 2; the rate is per expansion. $\lvert R\rvert$/Exp. is the final total size of all residues divided by the number of expansions. The last column is the mean number of full-vector comparisons per fallback query.
+**Table 2. The full-dimensional fallback, on the same seventeen instances as Table 1.** Fallback queries are local tests that reach line 15 of Algorithm 2; Rate is that count divided by expansions. $\lvert R\rvert$/Exp. is the final total size of all residues divided by the number of expansions — how much of the search the residue forest ends up holding. Comparisons/query is the mean number of full-vector comparisons an indexed fallback query performs. Speedup repeats Table 1's column, so the fallback profile of an instance can be read against its overall gain without turning back a page.
 
-| Instance | $M$ | Expansions | Fallbacks | Rate | $\lvert R\rvert$/Exp. | Comparisons per fallback |
-|:--|--:|--:|--:|--:|--:|--:|
-| Grid $10\times10$ | 3 | 9,500 | 3,806 | 40.1% | 0.93 | 29.5 |
-| Bay-16 | 3 | 347,498 | 5,783 | 1.7% | 0.67 | 24.9 |
-| Bay-8 | 4 | 157,704 | 6,414 | 4.1% | 0.12 | 8.0 |
-| NY-5, $\varepsilon=0.01$ | 4 | 144,117 | 58,440 | 40.6% | 0.75 | 47.1 |
-| Bay-0.8 | 5 | 34,871 | 0 | 0% | 0 | -- |
-| NY-5 | 5 | 503,505 | 91,934 | 18.3% | 0.70 | 52.6 |
-| NY-3 | 6 | 127,349 | 333 | 0.3% | 0.01 | 4.4 |
-| Grid $8\times8$, $\rho=-0.2$ | 6 | 293,896 | 39,359 | 13.4% | 0.67 | 124.5 |
-| Grid $7\times7$, $\rho=-0.4$ | 7 | 132,959 | 13,387 | 10.1% | 0.60 | 96.3 |
-| Grid $6\times6$, $\rho=-0.2$ | 8 | 99,244 | 10,701 | 10.8% | 0.75 | 205.9 |
+| Instance | $M$ | Expansions | Fallback queries | Rate | $\lvert R\rvert$/Exp. | Comparisons/query | Speedup |
+|:--|--:|--:|--:|--:|--:|--:|--:|
+| Grid $10\times10$ | 3 | 9,500 | 3,806 | 40.1% | 0.93 | 29.5 | 1.8 |
+| Bay-8 | 3 | 12,346 | 162 | 1.3% | 0.26 | 9.5 | 2.9 |
+| Bay-16 | 3 | 347,498 | 5,783 | 1.7% | 0.67 | 24.9 | 4.1 |
+| NY-3 | 4 | 10,962 | 101 | 0.9% | 0.07 | 3.5 | 4.6 |
+| Grid $10\times10$ | 4 | 53,652 | 11,778 | 22.0% | 0.79 | 68.7 | 5.1 |
+| NY-5, $\varepsilon=0.01$ | 4 | 144,117 | 58,440 | 40.6% | 0.75 | 47.1 | 9.2 |
+| Bay-8 | 4 | 157,704 | 6,414 | 4.1% | 0.12 | 8.0 | 30.7 |
+| NY-8 | 4 | 195,594 | 5,439 | 2.8% | 0.24 | 28.6 | 37.9 |
+| Grid $8\times8$, $\rho=0$ | 5 | 33,005 | 3,164 | 9.6% | 0.58 | 64.4 | 6.1 |
+| Bay-0.8 | 5 | 34,871 | 0 | 0% | 0 | -- | 27.7 |
+| NY-5 | 5 | 503,505 | 91,934 | 18.3% | 0.70 | 52.6 | 33.7 |
+| NY-3 | 6 | 127,349 | 333 | 0.3% | 0.01 | 4.4 | 82.0 |
+| Grid $8\times8$, $\rho=0$ | 6 | 179,297 | 14,804 | 8.3% | 0.64 | 125.7 | 39.4 |
+| Grid $8\times8$, $\rho=-0.2$ | 6 | 293,896 | 39,359 | 13.4% | 0.67 | 124.5 | 54.8 |
+| Grid $7\times7$, $\rho=-0.2$ | 7 | 91,704 | 7,418 | 8.1% | 0.49 | 80.2 | 17.7 |
+| Grid $7\times7$, $\rho=-0.4$ | 7 | 132,959 | 13,387 | 10.1% | 0.60 | 96.3 | 23.0 |
+| Grid $6\times6$, $\rho=-0.2$ | 8 | 99,244 | 10,701 | 10.8% | 0.75 | 205.9 | 25.8 |
 
 </div>
 
 ### 6.2 The fallback
 
-Table 2 shows that the fallback depends on the instance far more than on $M$, and that it takes three distinct forms.
+Table 2 shows that the fallback depends on the instance far more than on $M$, and that it takes three distinct forms, each with a different relationship to the speedup in Table 1.
 
-**No fallback.** On Bay-0.8 in five objectives no local test ever reaches line 15. Every truncated dominator found is also a full witness, no residue is created, and no residue tree is built. The 27.7-fold gain on this instance comes entirely from frontier indexing and test order. The lazy construction of Section 5.2 is what makes this case free.
+**No fallback.** On Bay-0.8 in five objectives no local test ever reaches line 15: every truncated dominator found is also a full witness, no residue is ever created, and no residue tree is ever built. The 27.7-fold gain on this instance is produced entirely by frontier indexing and test order, at zero cost from the mechanism of Section 5.2 — the lazy, query-triggered construction means a state that never falls back never pays for one.
 
-**Rare fallback.** On NY-3 in six objectives, where FAST-MVH gains most, only 333 of 127,349 expansions trigger a fallback, and the residue holds 1% of the expanded vectors. A fallback costs 4.4 comparisons on average. Here too the gain comes from the frontiers; the residue merely guarantees exactness at negligible cost. Bay-8 in four objectives is similar.
+**Rare fallback.** On NY-3 in six objectives, the single largest speedup in the paper, only 333 of 127,349 expansions reach the fallback at all, and the residue holds just 1% of expanded vectors; each of those 333 queries costs 4.4 comparisons. Bay-8 at four objectives and NY-3 at four objectives are similar: under 5% of expansions fall back, each for single-digit comparisons. On these instances the fallback is not where the time goes — it is a cheap exactness guarantee riding on top of a gain that comes almost entirely from frontier indexing (5.1) and from local-first ordering keeping $\mathrm{ChooseH}$ off the critical path.
 
-**Heavy fallback.** On the dense grids and on NY-5, 10% to 41% of expansions are accompanied by a fallback, and the residue grows to 60–93% of all expanded vectors. These are the cases the residue forest was designed for. On the $6\times6$ grid in eight objectives, the final residue averages 2,063 vectors per state, yet a fallback query costs 206 comparisons; on the $8\times8$ grid with $\rho=-0.2$ the figures are 3,097 vectors and 125 comparisons. A linear scan would cost the current residue size at each query. Even allowing for residues that are smaller earlier in the search, the index reduces the cost of each fallback by an order of magnitude. The cost per fallback grows with $M$, from about 25–50 comparisons at three to five objectives to 96–206 at seven and eight, as the pruning power of a k-d tree weakens with dimension. This is why the high-dimensional grids gain less than the six-objective ones.
+**Heavy fallback.** On the dense grids and on NY-5, 8% to 41% of expansions carry a fallback, and the residue absorbs 58–93% of all expanded vectors by the end of the run. These are exactly the cases Section 5.2 is built for: without the residue forest, each of the tens of thousands of fallback queries on Grid $8\times8$, $\rho=-0.2$ at six objectives would scan a residue that has grown to 198,192 vectors; the forest answers each in 124.5 comparisons, a sub-linear cost that holds even as the residue climbs into the hundreds of thousands. The mean cost per query still grows with $M$ — from 29.5–68.7 comparisons at three and four objectives to 96.3–205.9 at seven and eight — because a k-d tree's pruning power weakens as dimension grows; this is the main reason the seven- and eight-objective grids gain 17.7 to 25.8-fold while the six-objective ones reach 39.4 and 54.8-fold on comparable instances.
 
-**Test order and fallback counts.** Local-first ordering can increase the number of fallbacks. A successor that heuristic selection would discard now reaches the local test first, and may trigger a fallback on its way to being rejected. Theorem 1 preserves decisions, not the number of calls to each test. On every instance in Table 1 the trade is favourable: a fallback query costs at most a few hundred comparisons, while a heuristic selection may issue a goal query for each of hundreds of vectors.
+**Test order and fallback counts.** Local-first ordering can increase the number of fallbacks. A successor that heuristic selection would discard now reaches the local test first, and may trigger a fallback on its way to being rejected. Theorem 1 preserves decisions, not the number of calls to each test. On every instance in Table 2 the trade is favourable: a fallback query costs at most a few hundred comparisons, while a heuristic selection skipped by local-first ordering may otherwise have issued a goal query for each of hundreds of candidate vectors — the asymmetry Section 3.3 exploits with the redundancy pointer.
 
-**Reproducibility.** All runs are stored in `benchmarks/runs/` under the suffixes `fast_m3_6`, `fast_ny_lex`, `ny_sample`, and `fast_m5_8_home_instances`. Each run directory holds the exact commands, the commit, binary hashes, solution files, and every counter reported here. The Bay instances share one goal, and the extra road objectives are synthetic, so the instances are not independent samples of routing problems.
+**Reproducibility.** All runs are stored in `benchmarks/runs/` under the suffixes `fast_m3_6`, `fast_ny_lex`, `ny_sample`, and `fast_m5_8_home_instances`. Each run directory holds the exact commands, the commit, binary hashes, solution files, and every counter reported here, including `num_full_dominance_check`, `num_fallback_indexed`, and `cmp_full`, from which Table 2 is computed exactly, not estimated. The Bay instances share one goal, and the extra road objectives are synthetic, so the instances are not independent samples of routing problems.
 
 ## 7 Conclusion
 
