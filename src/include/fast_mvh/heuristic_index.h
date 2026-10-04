@@ -47,8 +47,8 @@ public:
 
     // dom(q) must answer Dom(T, q) for a D-array q (q[0] ignored).
     // prev_refuted: h[start-1] is already known to be dominated (reinsertion after a global check).
-    template <class DomT>
-    size_t choose(const std::vector<size_t>& g, size_t start, bool prev_refuted, DomT&& dom, uint64_t& nodes_visited) const {
+    template <class G, class DomT>
+    size_t choose(const G& g, size_t start, bool prev_refuted, DomT&& dom, uint64_t& nodes_visited) const {
         if (start >= K_) return K_;
         size_t q[D]; q[0] = 0;
         auto refuted = [&](size_t i) {

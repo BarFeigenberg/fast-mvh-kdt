@@ -35,7 +35,8 @@ int main(int argc, char** argv) {
             ("cutoffTime,t", po::value<unsigned int>()->default_value(120), "Cutoff time in seconds (0 = no limit)")
             ("h-tree-min", po::value<size_t>()->default_value(std::numeric_limits<size_t>::max()), "L_NAMOA_DR_MVH_FAST: build Roi heuristic tree when |H(s)| >= this")
             ("promote-min", po::value<size_t>()->default_value(8), "L_NAMOA_DR_MVH_FAST: min frontier size before K-d promotion")
-            ("promote-scan", po::value<uint64_t>()->default_value(64), "L_NAMOA_DR_MVH_FAST: promote when mean flat scan length >= this");
+            ("promote-scan", po::value<uint64_t>()->default_value(64), "L_NAMOA_DR_MVH_FAST: promote when mean flat scan length >= this")
+            ("fb-buffer", po::value<size_t>()->default_value(64), "L_NAMOA_DR_MVH_FAST3: unindexed fallback points before building a K-d block");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -150,7 +151,8 @@ int main(int argc, char** argv) {
             solver.heuristic_tree_min = vm["h-tree-min"].as<size_t>();
             solver.promotion.min_size = vm["promote-min"].as<size_t>();
             solver.promotion.mean_scan = vm["promote-scan"].as<uint64_t>();
-            
+            solver.fallback_buffer = vm["fb-buffer"].as<size_t>();
+
             solver(start, goal, mvh, solutions, timeout, sol_out, stats_out);
             
             std::cout << "algorithm=L_NAMOA_DR_MVH_FAST3"
@@ -167,6 +169,7 @@ int main(int argc, char** argv) {
                       << "\tnum_full_dominance_check=" << solver.num_full_dominance_check
                       << "\tnum_good_fallback=" << solver.num_good_fallback
                       << "\tnum_bad_fallback=" << solver.num_bad_fallback
+                      << "\tnum_fallback_indexed=" << solver.num_fallback_indexed
                       << "\n";
             solutions.clear();
         } else {

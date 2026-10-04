@@ -36,7 +36,7 @@ public:
     // Witness results for LOCALDOMCHECK.
     enum Witness : int { NONE = 0, TR_ONLY = 1, FULL = 2 };
 
-    explicit HybridFrontier(PromotionPolicy pol = {}, size_t drop_dim = 0) : pol_(pol), drop_dim_(0) {}
+    explicit HybridFrontier(PromotionPolicy pol = {}) : pol_(pol) {}
 
     size_t size() const noexcept { return live_; }
     size_t max_g0() const noexcept { return max_g0_; }
@@ -75,7 +75,7 @@ public:
             for (size_t i = 0; i < n; ++i, a += D) {
                 ++c;
                 if (le_tr(a, q)) {
-                    if (a[drop_dim_] <= q[drop_dim_]) { res = FULL; break; }
+                    if (a[0] <= q[0]) { res = FULL; break; }
                     res = TR_ONLY;
                 }
             }
@@ -86,15 +86,19 @@ public:
     }
 
     // Remove live p with g[k] <= p[k] (k >= 1), then insert g (Maya's UPDATE, same live set).
-    void update(const size_t* g, uint64_t& cmp) {
+    void update(const size_t* g, uint64_t& cmp) { update(g, cmp, [](const size_t*) {}); }
+
+    // Same, and on_kill(p) is called for every live point p removed by g (p is only valid during the call).
+    template <class OnKill>
+    void update(const size_t* g, uint64_t& cmp, OnKill&& on_kill) {
         if (!tree_) {
-            size_t w = 0, mx = g[drop_dim_];
+            size_t w = 0, mx = g[0];
             const size_t n = flat_.size() / D;
             for (size_t i = 0; i < n; ++i) {
                 const size_t* a = &flat_[i * D];
                 ++cmp;
-                if (le_tr(g, a)) continue;
-                if (a[drop_dim_] > mx) mx = a[drop_dim_];
+                if (le_tr(g, a)) { on_kill(a); continue; }
+                if (a[0] > mx) mx = a[0];
                 if (w != i) std::memmove(&flat_[w * D], a, sizeof(size_t) * D);
                 ++w;
             }
@@ -106,11 +110,11 @@ public:
             return;
         }
         size_t killed_at_max = 0;
-        if (root_ != NIL) mark(g, cmp, killed_at_max);
+        if (root_ != NIL) mark(g, cmp, killed_at_max, on_kill);
         insert(g);
-        if (g[drop_dim_] > max_g0_) { max_g0_ = g[drop_dim_]; max_cnt_ = 1; }
+        if (g[0] > max_g0_) { max_g0_ = g[0]; max_cnt_ = 1; }
         else {
-            if (g[drop_dim_] == max_g0_) ++max_cnt_;
+            if (g[0] == max_g0_) ++max_cnt_;
             max_cnt_ -= std::min(max_cnt_, killed_at_max);
             if (max_cnt_ == 0) recompute_max();
         }
@@ -128,11 +132,8 @@ private:
         uint32_t dead;
     };
 
-    bool le_tr(const size_t* a, const size_t* b) const {
-        for (int k = 0; k < D; ++k) {
-            if (k == drop_dim_) continue;
-            if (a[k] > b[k]) return false;
-        }
+    static bool le_tr(const size_t* a, const size_t* b) {
+        for (int k = 1; k < D; ++k) if (a[k] > b[k]) return false;  // coordinate 0 is the OPEN sort key
         return true;
     }
 
@@ -165,7 +166,7 @@ private:
             if (!n.dead) {
                 ++cmp;
                 if (le_tr(n.pt, q)) {
-                    if (!WITNESS || n.pt[drop_dim_] <= q[drop_dim_]) return WITNESS ? FULL : TR_ONLY;
+                    if (!WITNESS || n.pt[0] <= q[0]) return WITNESS ? FULL : TR_ONLY;
                     res = TR_ONLY;
                 }
             }
@@ -175,7 +176,8 @@ private:
         return res;
     }
 
-    void mark(const size_t* g, uint64_t& cmp, size_t& killed_at_max) {
+    template <class OnKill>
+    void mark(const size_t* g, uint64_t& cmp, size_t& killed_at_max, OnKill& on_kill) {
         stack_.clear(); stack_.push_back(root_);
         while (!stack_.empty()) {
             Node& n = nodes_[stack_.back()]; stack_.pop_back();
@@ -184,14 +186,14 @@ private:
             if (prune) continue;
             if (!n.dead) {
                 ++cmp;
-                if (le_tr(g, n.pt)) { n.dead = 1; --live_; if (n.pt[drop_dim_] == max_g0_) ++killed_at_max; }
+                if (le_tr(g, n.pt)) { n.dead = 1; --live_; if (n.pt[0] == max_g0_) ++killed_at_max; on_kill(n.pt); }
             }
             if (n.r != NIL) stack_.push_back(n.r);
             if (n.l != NIL) stack_.push_back(n.l);
         }
     }
 
-    int mapped(int k) const { return k >= drop_dim_ ? k + 1 : k; }
+    static constexpr int mapped(int k) { return k + 1; }
 
     void init_node(Node& n, const size_t* p, uint32_t axis) const {
         std::memcpy(n.pt, p, sizeof(size_t) * D);
@@ -262,8 +264,8 @@ private:
         max_g0_ = 0; max_cnt_ = 0;
         for (const Node& n : nodes_) {
             if (n.dead) continue;
-            if (n.pt[drop_dim_] > max_g0_) { max_g0_ = n.pt[drop_dim_]; max_cnt_ = 1; }
-            else if (n.pt[drop_dim_] == max_g0_) ++max_cnt_;
+            if (n.pt[0] > max_g0_) { max_g0_ = n.pt[0]; max_cnt_ = 1; }
+            else if (n.pt[0] == max_g0_) ++max_cnt_;
         }
     }
 
@@ -276,7 +278,6 @@ private:
     size_t live_ = 0, total_ = 0, built_ = 0;
     size_t max_g0_ = 0, max_cnt_ = 0;
     mutable uint64_t q_n_ = 0, q_cmp_ = 0;
-    size_t drop_dim_ = 0;
 };
 
 }  // namespace fast_mvh
