@@ -1,0 +1,2 @@
+timestamp,N,M,rho,K,solutions,expansions,generations,reinsertions,time_fast_s,time_maya_s,speedup_vs_maya,cmp_chooseh_fast,cmp_chooseh_maya,ops_reduction,soundness,maya_status
+2026-09-29 07:29:09,9,8,0.0,25,1169915,5350131,7096787,576788,874.5709668999771,246953.93770439998,282.37,1552423475,5709412022348,3677.7,BIT_IDENTICAL,OK

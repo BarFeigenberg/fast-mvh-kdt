@@ -4,7 +4,16 @@ build_shahaf/
 *.user
 *.log
 *.exe
-scratchpad/
+scratchpad/*
+!scratchpad/grids/
+!scratchpad/maps/
+scratchpad/maps/*
+!scratchpad/maps/bay_8d_800/
+!scratchpad/*.py
+!scratchpad/*.ps1
+!scratchpad/CMakeLists.txt
+!scratchpad/apex_builder_main.cpp
+!scratchpad/results/
 __pycache__/
 *.pyc
 
@@ -16,7 +25,10 @@ v5_sols.csv
 patch_kdtree.py
 unpatch_kdtree.py
 
-# Ignore bulk run outputs by default, but safeguard breakthrough archives
+# Ignore bulk run outputs by default, but safeguard breakthrough archives and master CSVs
 benchmarks/runs/*
 !benchmarks/runs/adaptive_explorer/
+!benchmarks/runs/*.csv
+!benchmarks/runs/*.md
+!benchmarks/runs/K_sweep_summary.md
 benchmarks/instances/
