@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 265" role="img" aria-label="Paired time saved by goal-witness caching, by objective count">
+<style>text{font:13px "Times New Roman",serif;fill:#111}</style>
+<path d="M50,214.0H620" stroke="#ccc" stroke-dasharray="3 3"/>
+<text x="43" y="218.0" text-anchor="end">-20</text>
+<path d="M50,179.6H620" stroke="#ccc" stroke-dasharray="3 3"/>
+<text x="43" y="183.6" text-anchor="end">-10</text>
+<path d="M50,145.2H620" stroke="#111" stroke-dasharray="none"/>
+<text x="43" y="149.2" text-anchor="end">0</text>
+<path d="M50,110.8H620" stroke="#ccc" stroke-dasharray="3 3"/>
+<text x="43" y="114.8" text-anchor="end">10</text>
+<path d="M50,76.4H620" stroke="#ccc" stroke-dasharray="3 3"/>
+<text x="43" y="80.4" text-anchor="end">20</text>
+<path d="M50,42.0H620" stroke="#ccc" stroke-dasharray="3 3"/>
+<text x="43" y="46.0" text-anchor="end">30</text>
+<text x="65.0" y="237" text-anchor="middle">3</text>
+<text x="245.0" y="237" text-anchor="middle">4</text>
+<text x="425.0" y="237" text-anchor="middle">5</text>
+<text x="605.0" y="237" text-anchor="middle">6</text>
+<text x="335" y="260" text-anchor="middle">Number of objectives</text>
+<text transform="translate(15 140) rotate(-90)" text-anchor="middle">Paired time saved (%)</text>
+<text x="97" y="19">A*pex grids</text>
+<circle cx="85" cy="15" r="4" fill="#111"/>
+<circle cx="53.0" cy="77.36223776223781" r="4" fill="#111"><title>grid10_M3_r-0.6_s42_apex: 19.7%</title></circle>
+<circle cx="233.0" cy="138.79391269523427" r="4" fill="#111"><title>grid10_M4_e0.05: 1.9%</title></circle>
+<circle cx="413.0" cy="112.46193247962745" r="4" fill="#111"><title>grid8_M5_e0.05: 9.5%</title></circle>
+<circle cx="593.0" cy="73.62713731528919" r="4" fill="#111"><title>grid8_M6_e0.05: 20.8%</title></circle>
+<text x="272" y="19">Landmark grids</text>
+<rect x="256" y="11" width="8" height="8" fill="white" stroke="#111"/>
+<rect x="61.0" y="132.04820031298902" width="8" height="8" fill="white" stroke="#111"><title>grid10_M3_r-0.6_s42_A50: 2.7%</title></rect>
+<rect x="61.0" y="189.34705456650744" width="8" height="8" fill="white" stroke="#111"><title>grid15_M3_r-0.6_s42_A200: -14.0%</title></rect>
+<rect x="241.0" y="86.70027457440962" width="8" height="8" fill="white" stroke="#111"><title>grid10_M4_r-0.6_s42_A50: 15.8%</title></rect>
+<rect x="241.0" y="201.32555740141643" width="8" height="8" fill="white" stroke="#111"><title>grid12_M4_r0.0_s42_A50: -17.5%</title></rect>
+<rect x="421.0" y="170.66289184603016" width="8" height="8" fill="white" stroke="#111"><title>grid10_M5_r-0.3_s42_A50: -8.6%</title></rect>
+<rect x="601.0" y="173.3460021963081" width="8" height="8" fill="white" stroke="#111"><title>grid10_M6_r0.3_s42_A25: -9.3%</title></rect>
+<text x="447" y="19">Bay Area</text>
+<path d="M431,11L439,19M439,11L431,19" stroke="#111" stroke-width="1.5"/>
+<path d="M73.0,141.4133893209906L81.0,149.4133893209906M81.0,141.4133893209906L73.0,149.4133893209906" stroke="#111" stroke-width="1.5"><title>BAY16000_M3_e0.1: -0.1%</title></path>
+<path d="M73.0,90.31897106109325L81.0,98.31897106109325M81.0,90.31897106109325L73.0,98.31897106109325" stroke="#111" stroke-width="1.5"><title>BAY8000_M3_e0.1: 14.8%</title></path>
+<path d="M253.0,120.28999704927712L261.0,128.28999704927713M261.0,120.28999704927712L253.0,128.28999704927713" stroke="#111" stroke-width="1.5"><title>BAY8000_M4_e0.1: 6.1%</title></path>
+</svg>

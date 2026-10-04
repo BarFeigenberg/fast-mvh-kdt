@@ -1,0 +1,172 @@
+{
+ "jobs": [
+  {
+   "name": "grid10_M3",
+   "family": "grid",
+   "M": 3,
+   "eps": 0.0,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\grid10_M3_r-0.6_s42",
+   "start": 1,
+   "goal": 100,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\grid10_M3_r-0.6_s42\\apex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "grid10_M4",
+   "family": "grid",
+   "M": 4,
+   "eps": 0.05,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122148_valid_grid_and_3d\\inputs\\grid10_M4",
+   "start": 1,
+   "goal": 100,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122148_valid_grid_and_3d\\inputs\\grid10_M4\\apex_e0.05_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "grid8_M5",
+   "family": "grid",
+   "M": 5,
+   "eps": 0.05,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_121834_valid_grid_and_3d\\inputs\\grid8_M5",
+   "start": 1,
+   "goal": 64,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_121834_valid_grid_and_3d\\inputs\\grid8_M5\\apex_e0.05_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "grid8_M6",
+   "family": "grid",
+   "M": 6,
+   "eps": 0.05,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_121834_valid_grid_and_3d\\inputs\\grid8_M6",
+   "start": 1,
+   "goal": 64,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_121834_valid_grid_and_3d\\inputs\\grid8_M6\\apex_e0.05_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 1,
+     "timeout": 600
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "bay8_M3",
+   "family": "bay",
+   "M": 3,
+   "eps": 0.1,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY8000_M3",
+   "start": 1,
+   "goal": 8000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY8000_M3\\apex_e0.1_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "bay16_M3",
+   "family": "bay",
+   "M": 3,
+   "eps": 0.1,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY16000_M3",
+   "start": 1,
+   "goal": 16000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY16000_M3\\apex_e0.1_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "bay8_M4",
+   "family": "bay",
+   "M": 4,
+   "eps": 0.1,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY8000_M4",
+   "start": 1,
+   "goal": 8000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY8000_M4\\apex_e0.1_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 1,
+     "timeout": 600
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  }
+ ]
+}
