@@ -1,0 +1,16 @@
+lin|flatH=1 local_first=1 witness=1 localX=16 targetX=16
+lin_r|flatH=1 local_first=1 witness=1 localX=16 targetX=16 redund=1
+lin_id|flatH=1 local_first=1 witness=1 localX=16 targetX=16 ideal=1
+lin_r_id|flatH=1 local_first=1 witness=1 localX=16 targetX=16 redund=1 ideal=1
+lexBU_fp_id_r_h0|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=2 fastpath=1 ideal=1 redund=1 hX=0
+lexBU_fp_id_r_h32|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=2 fastpath=1 ideal=1 redund=1 hX=32
+lexBU_fp_id_r_h128|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=2 fastpath=1 ideal=1 redund=1 hX=128
+lexBU_fp_id_r_h512|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=2 fastpath=1 ideal=1 redund=1 hX=512
+lexBU_fp_id_h0|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=2 fastpath=1 ideal=1 hX=0
+lexBU_h0|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=2 hX=0
+lexTD_fp_id_r_h0|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=1 fastpath=1 ideal=1 redund=1 hX=0
+lexTD_h0|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=1 hX=0
+roi_fp_id_h0|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 fastpath=1 ideal=1 hX=0 redund=1
+roi_fp_id_h128|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 fastpath=1 ideal=1 hX=128 redund=1
+roi_fp_id_h512|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 fastpath=1 ideal=1 hX=512 redund=1
+roi_h0|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=0

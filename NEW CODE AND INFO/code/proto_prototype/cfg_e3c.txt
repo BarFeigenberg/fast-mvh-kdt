@@ -1,0 +1,24 @@
+maya_lin|flatH=1 localX=16 targetX=16
+maya_lin_flatT|flatH=1  localX=16
+maya_roi_h0|flatH=1 localX=16 targetX=16 chooseh=3 hX=0
+maya_roi_h16|flatH=1 localX=16 targetX=16 chooseh=3 hX=16
+maya_roi_h64|flatH=1 localX=16 targetX=16 chooseh=3 hX=64
+maya_roi_h256|flatH=1 localX=16 targetX=16 chooseh=3 hX=256
+maya_roi_h1024|flatH=1 localX=16 targetX=16 chooseh=3 hX=1024
+maya_roi_B4|flatH=1 localX=16 targetX=16 chooseh=3 hX=0 leafB=4
+maya_roi_B16|flatH=1 localX=16 targetX=16 chooseh=3 hX=0 leafB=16
+maya_roi_B32|flatH=1 localX=16 targetX=16 chooseh=3 hX=0 leafB=32
+maya_roi_id_h64|flatH=1 localX=16 targetX=16 chooseh=3 hX=64 ideal=1
+maya_lexBU_h64|flatH=1 localX=16 targetX=16 chooseh=2 hX=64 fastpath=1 ideal=1
+lf_lin|flatH=1 local_first=1 witness=1 localX=16 targetX=16
+lf_lin_flatT|flatH=1 local_first=1 witness=1 localX=16
+lf_roi_h0|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=0
+lf_roi_h16|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=16
+lf_roi_h64|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=64
+lf_roi_h256|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=256
+lf_roi_h1024|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=1024
+lf_roi_B4|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=0 leafB=4
+lf_roi_B16|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=0 leafB=16
+lf_roi_B32|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=0 leafB=32
+lf_roi_id_h64|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=3 hX=64 ideal=1
+lf_lexBU_h64|flatH=1 local_first=1 witness=1 localX=16 targetX=16 chooseh=2 hX=64 fastpath=1 ideal=1

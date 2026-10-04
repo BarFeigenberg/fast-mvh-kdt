@@ -23,6 +23,8 @@ include_directories(
 add_library(fast_mvh_lib
     src/src/mvh_kdtree.cpp
     src/src/solvers/l_namoa_kdt_chooseh.cpp
+    src/src/solvers/l_namoa_dr_mvh_fast3.cpp
+    src/src/solvers/l_namoa_dr_mvh_fast.cpp
     src/src/solvers/l_namoa_dr_mvh_kdt.cpp
     baselines/bridging-mvh-dr/src/parser.cpp
     baselines/bridging-mvh-dr/src/parsers/multi_valued_heuristic_parser.cpp
@@ -67,3 +69,7 @@ if(BUILD_BASELINES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/baselines/bridging-mv
         message(STATUS "Boost not found; baseline subdirectory is present as a read-only oracle.")
     endif()
 endif()
+
+add_executable(proto_w "NEW CODE AND INFO/code/proto_prototype/proto_main.cpp")
+target_include_directories(proto_w PRIVATE "NEW CODE AND INFO/code/proto_prototype")
+target_link_libraries(proto_w fast_mvh_lib "Boost::program_options")

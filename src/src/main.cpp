@@ -3,11 +3,16 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 
 #include <boost/program_options.hpp>
 
 #include "fast_mvh/solvers/l_namoa_kdt_chooseh.h"
 #include "fast_mvh/solvers/l_namoa_dr_mvh_kdt.h"
+#include "fast_mvh/solvers/l_namoa_dr_mvh_fast.h"
+#include "fast_mvh/solvers/l_namoa_dr_mvh_fast3.h"
+#include "dr_optimizer.h"
 #include "parser.h"
 #include "parsers/multi_valued_heuristic_parser.h"
 #include "multivalued_heuristic/apex_mvh.h"
@@ -27,7 +32,10 @@ int main(int argc, char** argv) {
             ("mvh", po::value<std::string>()->default_value(""), "Directory for multi valued heuristic file")
             ("sol-out", po::value<std::string>()->default_value(""), "File to output solutions")
             ("stats-out", po::value<std::string>()->default_value(""), "File to output statistics")
-            ("cutoffTime,t", po::value<unsigned int>()->default_value(120), "Cutoff time in seconds (0 = no limit)");
+            ("cutoffTime,t", po::value<unsigned int>()->default_value(120), "Cutoff time in seconds (0 = no limit)")
+            ("h-tree-min", po::value<size_t>()->default_value(std::numeric_limits<size_t>::max()), "L_NAMOA_DR_MVH_FAST: build Roi heuristic tree when |H(s)| >= this")
+            ("promote-min", po::value<size_t>()->default_value(8), "L_NAMOA_DR_MVH_FAST: min frontier size before K-d promotion")
+            ("promote-scan", po::value<uint64_t>()->default_value(64), "L_NAMOA_DR_MVH_FAST: promote when mean flat scan length >= this");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -107,6 +115,58 @@ int main(int argc, char** argv) {
                       << "\ttime_limit_reached=" << solver.time_limit_reached
                       << "\tcmpchk=" << solver.cmpchk
                       << "\tcmpupd=" << solver.cmpupd
+                      << "\n";
+            solutions.clear();
+        } else if (algorithm == "L_NAMOA_DR_MVH_FAST") {
+            L_NAMOA_DR_MVH_FAST solver(adj_matrix, eps);
+            solver.heuristic_tree_min = vm["h-tree-min"].as<size_t>();
+            solver.promotion.min_size = vm["promote-min"].as<size_t>();
+            solver.promotion.mean_scan = vm["promote-scan"].as<uint64_t>();
+            solver(start, goal, mvh, solutions, timeout, sol_out, stats_out);
+
+            std::cout << "algorithm=L_NAMOA_DR_MVH_FAST"
+                      << "\tsource=" << start << "\ttarget=" << goal
+                      << "\tnum_solutions=" << solutions.size()
+                      << "\tnum_expansion=" << solver.num_expansion
+                      << "\tnum_generation=" << solver.num_generation
+                      << "\tnum_reinsertion=" << solver.num_reinsertion
+                      << "\tnum_full_dominance_check=" << solver.num_full_dominance_check
+                      << "\tnum_good_fallback=" << solver.num_good_fallback
+                      << "\tnum_bad_fallback=" << solver.num_bad_fallback
+                      << "\tnum_chooseh=" << solver.num_chooseh
+                      << "\tnum_frontier_trees=" << solver.num_frontier_trees
+                      << "\tnum_heuristic_trees=" << solver.num_heuristic_trees
+                      << "\tnum_redundant_heuristics=" << solver.num_redundant_heuristics
+                      << "\truntime_s=" << solver.runtime / CLOCKS_PER_SEC
+                      << "\ttime_limit_reached=" << solver.time_limit_reached
+                      << "\tcmpchk=" << solver.cmpchk
+                      << "\tcmpupd=" << solver.cmpupd
+                      << "\tcmp_chooseh=" << solver.cmp_chooseh
+                      << "\tcmp_full=" << solver.cmp_full
+                      << "\n";
+            solutions.clear();  // NodePtrs live in solver.node_pool
+        } else if (algorithm == "L_NAMOA_DR_MVH_FAST3") {
+            L_NAMOA_DR_MVH_FAST3 solver(adj_matrix, eps);
+            solver.heuristic_tree_min = vm["h-tree-min"].as<size_t>();
+            solver.promotion.min_size = vm["promote-min"].as<size_t>();
+            solver.promotion.mean_scan = vm["promote-scan"].as<uint64_t>();
+            
+            solver(start, goal, mvh, solutions, timeout, sol_out, stats_out);
+            
+            std::cout << "algorithm=L_NAMOA_DR_MVH_FAST3"
+                      << "\tsource=" << start << "\ttarget=" << goal
+                      << "\tnum_solutions=" << solutions.size()
+                      << "\tnum_expansion=" << solver.num_expansion
+                      << "\tnum_generation=" << solver.num_generation
+                      << "\truntime_s=" << solver.runtime / CLOCKS_PER_SEC
+                      << "\ttime_limit_reached=" << solver.time_limit_reached
+                      << "\tcmpchk=" << solver.cmpchk
+                      << "\tcmpupd=" << solver.cmpupd
+                      << "\tcmp_chooseh=" << solver.cmp_chooseh
+                      << "\tcmp_full=" << solver.cmp_full
+                      << "\tnum_full_dominance_check=" << solver.num_full_dominance_check
+                      << "\tnum_good_fallback=" << solver.num_good_fallback
+                      << "\tnum_bad_fallback=" << solver.num_bad_fallback
                       << "\n";
             solutions.clear();
         } else {

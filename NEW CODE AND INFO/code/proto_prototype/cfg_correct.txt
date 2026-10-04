@@ -1,0 +1,21 @@
+base|
+flatH|flatH=1
+local_first|local_first=1
+witness|witness=1
+branchless|branchless=1
+gcl_prune|gcl_prune=1
+tgtKD|targetX=0
+allKD|localX=0 targetX=0
+allKD_stale|localX=0 targetX=0 exact_max=0
+ideal_lin|flatH=1 ideal=1
+lexTD|chooseh=1
+lexTD_fp|chooseh=1 fastpath=1
+lexBU|chooseh=2
+lexBU_fp|chooseh=2 fastpath=1
+lexBU_fp_id|chooseh=2 fastpath=1 ideal=1
+roi|chooseh=3
+roi_fp_id|chooseh=3 fastpath=1 ideal=1
+lexTD_filt|chooseh=1 filterT=1
+lexBU_fp_id_filt|chooseh=2 fastpath=1 ideal=1 filterT=1
+lexBU_fp_id_filt_tKD|chooseh=2 fastpath=1 ideal=1 filterT=1 targetX=0
+roi_tKD|chooseh=3 targetX=0
