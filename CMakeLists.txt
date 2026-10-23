@@ -29,6 +29,7 @@ add_library(fast_mvh_lib
     src/src/mvh_kdtree.cpp
     src/src/solvers/l_namoa_kdt_chooseh.cpp
     src/src/solvers/l_namoa_dr_mvh_fast3.cpp
+    src/src/solvers/l_namoa_dr_mvh_ablation.cpp
     src/src/solvers/l_namoa_dr_mvh_fast.cpp
     src/src/solvers/l_namoa_dr_mvh_kdt.cpp
     baselines/bridging-mvh-dr/src/parser.cpp
@@ -78,3 +79,23 @@ endif()
 add_executable(proto_w "NEW CODE AND INFO/code/proto_prototype/proto_main.cpp")
 target_include_directories(proto_w PRIVATE "NEW CODE AND INFO/code/proto_prototype")
 target_link_libraries(proto_w fast_mvh_lib "Boost::program_options")
+
+add_executable(fallback_explorer "scratchpad/fallback_explorer.cpp")
+target_include_directories(fallback_explorer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "src/include" "baselines/bridging-mvh-dr/include")
+target_link_libraries(fallback_explorer fast_mvh_lib "Boost::program_options")
+
+add_executable(test_algo1_unified "scratchpad/test_algo1_unified.cpp")
+target_include_directories(test_algo1_unified PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "src/include" "baselines/bridging-mvh-dr/include")
+target_link_libraries(test_algo1_unified fast_mvh_lib "Boost::program_options")
+
+add_executable(measure_lineage "scratchpad/measure_lineage.cpp")
+target_include_directories(measure_lineage PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "src/include" "baselines/bridging-mvh-dr/include")
+target_link_libraries(measure_lineage fast_mvh_lib "Boost::program_options")
+
+add_executable(leave_one_out_runner "scratchpad/leave_one_out_runner.cpp")
+target_include_directories(leave_one_out_runner PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "src/include" "baselines/bridging-mvh-dr/include")
+target_link_libraries(leave_one_out_runner fast_mvh_lib "Boost::program_options")
+
+
+
+

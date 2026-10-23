@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Fallback Story in MVH | סיפור מנגנון הנסיגה והפרת הסדר</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --card-bg: #151e34;
+      --card-inner: #0f172a;
+      --border: #23314f;
+      --p1: #38bdf8;
+      --p2: #fb923c;
+      --goal: #ec4899;
+      --ok: #4ade80;
+      --err: #f87171;
+      --warn: #facc15;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+      padding: 16px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.ltr {
+      direction: ltr;
+      text-align: left;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Top Bar */
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .header-info h1 {
+      font-size: 1.3rem;
+      color: var(--p1);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-info p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .top-btns {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-top {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-top.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+    }
+
+    /* Navigation / Stepper */
+    .nav-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nav-ctrls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn-grp {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button.btn-act {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    button.btn-act:hover {
+      background: #1e293b;
+      border-color: var(--p1);
+    }
+
+    button.btn-act.primary {
+      background: var(--p1);
+      color: #0b1120;
+      border-color: var(--p1);
+    }
+
+    .step-badge {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--warn);
+    }
+
+    /* Timeline step dots */
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      overflow-x: auto;
+    }
+
+    .timeline-step {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .timeline-step .t-num {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .timeline-step .t-title {
+      font-size: 0.72rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .timeline-step.active {
+      border-color: var(--p1);
+      background: rgba(56, 189, 248, 0.12);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+    }
+
+    .timeline-step.active .t-num {
+      color: var(--p1);
+    }
+
+    /* Story Stage Layout (3-Column) */
+    .story-layout {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr 1.15fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 1024px) {
+      .story-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-header {
+      font-size: 0.92rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    /* Canvas */
+    .canvas-box {
+      width: 100%;
+      height: 360px;
+      background: #070b14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: var(--card-inner);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.74rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Memory Watch Window */
+    .mem-sec {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mem-sec-title {
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .chip {
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      border: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chip.p1 { background: rgba(56, 189, 248, 0.1); border-color: var(--p1); }
+    .chip.p2 { background: rgba(251, 146, 60, 0.1); border-color: var(--p2); }
+    .chip.ok { background: rgba(74, 222, 128, 0.15); border-color: var(--ok); }
+
+    .alarm-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: var(--card-inner);
+      transition: all 0.3s;
+    }
+
+    .alarm-box.violation {
+      background: rgba(248, 113, 113, 0.18);
+      border-color: var(--err);
+      color: #fca5a5;
+      animation: pulseAlert 1.5s infinite;
+    }
+
+    @keyframes pulseAlert {
+      0%, 100% { box-shadow: 0 0 0 rgba(248, 113, 113, 0); }
+      50% { box-shadow: 0 0 10px rgba(248, 113, 113, 0.45); }
+    }
+
+    .check-step {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-right: 4px solid var(--border);
+    }
+
+    body.ltr .check-step {
+      border-right: none;
+      border-left: 4px solid var(--border);
+    }
+
+    .check-step.pass { border-color: var(--ok); background: rgba(74, 222, 128, 0.08); }
+    .check-step.fail { border-color: var(--err); background: rgba(248, 113, 113, 0.08); }
+
+    .badge-status {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    .badge-pass { background: var(--ok); color: #0b1120; }
+    .badge-fail { background: var(--err); color: #0b1120; }
+    .badge-idle { background: var(--border); color: var(--text-muted); }
+
+    /* Narrative Box */
+    .narrative-box {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 0.86rem;
+      line-height: 1.6;
+      color: #e2e8f0;
+      min-height: 140px;
+    }
+
+    .narrative-box strong { color: #fff; }
+    .hl-p1 { color: var(--p1); font-weight: bold; }
+    .hl-p2 { color: var(--p2); font-weight: bold; }
+    .hl-ok { color: var(--ok); font-weight: bold; }
+    .hl-err { color: var(--err); font-weight: bold; }
+    .hl-warn { color: var(--warn); font-weight: bold; }
+
+    /* Code Box */
+    .code-box {
+      background: #070b14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+    }
+
+    .code-line {
+      display: block;
+      color: #64748b;
+      padding: 2px 4px;
+      border-radius: 4px;
+      white-space: pre;
+    }
+
+    .code-line.active {
+      background: #1e293b;
+      color: var(--p1);
+      font-weight: bold;
+      border-right: 3px solid var(--p1);
+    }
+
+    body.ltr .code-line.active {
+      border-right: none;
+      border-left: 3px solid var(--p1);
+    }
+
+    .code-line.highlight-warn {
+      background: rgba(250, 204, 21, 0.15);
+      color: #fde047;
+      font-weight: bold;
+      border-right: 3px solid var(--warn);
+    }
+
+    body.ltr .code-line.highlight-warn {
+      border-right: none;
+      border-left: 3px solid var(--warn);
+    }
+
+    .code-line.highlight-success {
+      background: rgba(74, 222, 128, 0.15);
+      color: #86efac;
+      font-weight: bold;
+      border-right: 3px solid var(--ok);
+    }
+
+    body.ltr .code-line.highlight-success {
+      border-right: none;
+      border-left: 3px solid var(--ok);
+    }
+
+    /* Architecture Box */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .arch-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .arch-card {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.8rem;
+    }
+
+    .arch-card.bad { border-color: rgba(248, 113, 113, 0.4); }
+    .arch-card.bad h3 { color: var(--err); }
+    .arch-card.good { border-color: rgba(74, 222, 128, 0.4); }
+    .arch-card.good h3 { color: var(--ok); }
+  </style>
+</head>
+<body id="pageBody">
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-info">
+        <h1 id="lblTitle">⚡ סיפור מנגנון ה-Fallback והפרת הסדר ב-MVH</h1>
+        <p id="lblSubtitle">מעקב אלגוריתמי מלא: משבירת המונוטוניות בשליפה, דרך אשליית הקיצוץ ועד פתרון עץ ה-K-d של FAST3</p>
+      </div>
+
+      <div class="top-btns">
+        <button class="btn-top active" id="btnModeAlgo" onclick="setMode('algo')">מצב אלגוריתמי</button>
+        <button class="btn-top" id="btnModeAnalogy" onclick="setMode('analogy')">משל הדירות (פשוט)</button>
+        <button class="btn-top" id="btnLang" onclick="toggleLang()">English</button>
+      </div>
+    </header>
+
+    <!-- Navigation Bar -->
+    <div class="nav-bar">
+      <div class="nav-ctrls">
+        <div class="btn-grp">
+          <button class="btn-act" onclick="reset()">⏮ איפוס</button>
+          <button class="btn-act" onclick="prev()">◀ הקודם</button>
+          <button class="btn-act primary" id="btnPlay" onclick="togglePlay()">⏸ השהה</button>
+          <button class="btn-act" onclick="next()">הבא ▶</button>
+          <button class="btn-act" id="btnSpeed" onclick="cycleSpeed()">1.0x</button>
+        </div>
+
+        <div class="step-badge" id="stepBadge">
+          שלב 1 מתוך 8
+        </div>
+      </div>
+
+      <div class="timeline" id="timelineBar">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+
+    <!-- Core Layout -->
+    <div class="story-layout">
+      <!-- Col 1: Cost-Space Canvas -->
+      <div class="card">
+        <div class="card-header">
+          <span id="lblCanvasTitle">מרחב העלויות: g₁ (ציר נשמט) מול g₂ (קיצוץ Tr)</span>
+          <span style="font-family: monospace; color: var(--p1); font-size: 0.75rem;">M = 2</span>
+        </div>
+
+        <div class="canvas-box">
+          <canvas id="costCanvas"></canvas>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-item">
+            <div class="legend-dot" style="background: var(--p1);"></div>
+            <span id="legP1">מסלול 1: (10, 2)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: var(--p2);"></div>
+            <span id="legP2">מסלול 2: (8, 4)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: var(--goal);"></div>
+            <span id="legGoal">סף יעד: T = 6</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: var(--err);"></div>
+            <span id="legTr">רצועת Tr מטעה</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: var(--ok);"></div>
+            <span id="legCone">חרוט פרטו אמיתי</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Col 2: Memory Registers Watch -->
+      <div class="card">
+        <div class="card-header">
+          <span id="lblMemTitle">חלון מעקב זיכרון ורגיסטרים (Memory Watch)</span>
+          <span style="font-size: 0.7rem; color: var(--text-muted);">Node: s</span>
+        </div>
+
+        <!-- OPEN Heap -->
+        <div class="mem-sec">
+          <div class="mem-sec-title" id="lblHeapTitle">תור OPEN (ממוין לפי f₁ עולה)</div>
+          <div id="heapBox"></div>
+        </div>
+
+        <!-- Closed Set -->
+        <div class="mem-sec">
+          <div class="mem-sec-title" id="lblClosedTitle">הקבוצה הסגורה G_cl(s)</div>
+          <div id="closedBox"></div>
+        </div>
+
+        <!-- Monotonicity Bound -->
+        <div class="alarm-box" id="alarmBox">
+          <span id="lblBoundTitle">חסם מונוטוניות: max g₁(s)</span>
+          <span style="font-family: monospace; font-size: 0.92rem;" id="maxG1Val">-∞</span>
+        </div>
+
+        <!-- Checklist -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div class="check-step" id="chkTr">
+            <span id="txtTr">1. בדיקת קיצוץ Tr (האם Tr(g') ≤ Tr(g))</span>
+            <span class="badge-status badge-idle" id="bdgTr">-</span>
+          </div>
+          <div class="check-step" id="chkMono">
+            <span id="txtMono">2. אימות מונוטוניות (max g'₁ ≤ g₁)</span>
+            <span class="badge-status badge-idle" id="bdgMono">-</span>
+          </div>
+          <div class="check-step" id="chkFallback">
+            <span id="txtFallback">3. נסיגה (Fallback): בדיקת פרטו מלאה</span>
+            <span class="badge-status badge-idle" id="bdgFallback">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Col 3: Narrative & Pseudocode -->
+      <div class="card">
+        <div class="card-header">
+          <span id="lblNarrativeTitle">סיפור המהלך הנוכחי</span>
+          <span style="font-size: 0.72rem; color: var(--warn); font-weight: bold;" id="stepTag">STEP 1</span>
+        </div>
+
+        <div class="narrative-box" id="narrativeBox">
+          טוען הסבר...
+        </div>
+
+        <div class="card-header" style="margin-top: 4px;">
+          <span id="lblDebuggerTitle">מעקב שורות קוד (L-NAMOA*dr-mvh)</span>
+        </div>
+
+        <div class="code-box">
+          <span class="code-line" id="line24">24: n' = new_node(s)</span>
+          <span class="code-line" id="line26">26: h' = CHOOSEH(s, g, T)</span>
+          <span class="code-line" id="line35">    35: for h in H(s):</span>
+          <span class="code-line" id="line37">    37:   if T ⪯ Tr(g + h): continue  // Pruned by Goal!</span>
+          <span class="code-line" id="line39">    39:   return h</span>
+          <span class="code-line" id="line32">32: OPEN.Insert(n', key=f1)</span>
+          <span class="code-line" id="line8"> 8: n = OPEN.Pop()  // Smallest f1</span>
+          <span class="code-line" id="line42">42: if ∃ g' ∈ G_cl_Tr(s) : Tr(g') ⪯ Tr(g):</span>
+          <span class="code-line" id="line43">43:   if max(g'_1) <= g_1: return true // Pruned!</span>
+          <span class="code-line" id="line45">45: if ∃ g' ∈ G_cl(s) : g' ⪯ g: return true // FALLBACK!</span>
+          <span class="code-line" id="line47">47: return false  // Survives as Non-Dominated!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Deep Dive (FAST2 vs FAST3) -->
+    <div class="card">
+      <div class="card-header">
+        <span id="lblArchHeader">ההבדל הארכיטקטוני המהותי: מדוע FAST2 נחנק ואיך FAST3 ניצח</span>
+      </div>
+
+      <div class="arch-grid">
+        <div class="arch-card bad">
+          <h3 id="tF2">❌ צוואר הבקבוק ב-FAST2</h3>
+          <p id="dF2">
+            ב-98.5% ממקרי ה-Fallback, המסלולים שורדים (אינם נשלטים). כדי להוכיח שאף מסלול עבר אינו שולט במסלול החדש, <strong>אי אפשר לבצע יציאה מוקדמת (early break)</strong>.
+            חייבים לסרוק ליניארית את כל אלפי המסלולים ב-G_cl(s) עד האחרון שבהם. במופעי גריד כבדים זה יצר <strong>1.35 מיליארד השוואות</strong> ושרף מעל 85% מזמן הריצה!
+          </p>
+        </div>
+
+        <div class="arch-card good">
+          <h3 id="tF3">🚀 הפתרון של FAST3 (ArenaGcl)</h3>
+          <p id="dF3">
+            FAST3 שומר חוצץ שטוח של עד 128 איברים בלבד (הנכנס ל-L1 Cache ללא מצביעים). מעבר ל-128, הקבוצה מוקפאת לתוך <strong>עץ K-d מלא על כל M הממדים</strong>.
+            ב-Fallback, תיבות התחימה (lo > q) פוסלות ענפים שלמים ב-O(1). כמות הבדיקות צונחת מ-1.35 מיליארד ל-6.2 מיליון (ירידה של פי 217), ומניבה האצה של עד פי 8.97 מעל FAST2 ועד פי 53 מעל מאיה!
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Story Content Dictionary
+    const content = {
+      he: {
+        lblTitle: "⚡ סיפור מנגנון ה-Fallback והפרת הסדר ב-MVH",
+        lblSubtitle: "מעקב אלגוריתמי מלא: משבירת המונוטוניות בשליפה, דרך אשליית הקיצוץ ועד פתרון עץ ה-K-d של FAST3",
+        lblCanvasTitle: "מרחב העלויות: g₁ (ציר נשמט) מול g₂ (קיצוץ Tr)",
+        legP1: "מסלול 1: (10, 2)",
+        legP2: "מסלול 2: (8, 4)",
+        legGoal: "סף יעד: T = 6",
+        legTr: "רצועת Tr מטעה",
+        legCone: "חרוט פרטו אמיתי",
+        lblMemTitle: "חלון מעקב זיכרון ורגיסטרים (Memory Watch)",
+        lblHeapTitle: "תור OPEN (ממוין לפי f₁ עולה)",
+        lblClosedTitle: "הקבוצה הסגורה G_cl(s)",
+        lblBoundTitle: "חסם מונוטוניות: max g₁(s)",
+        txtTr: "1. בדיקת קיצוץ Tr (האם Tr(g') ≤ Tr(g))",
+        txtMono: "2. אימות מונוטוניות (max g'₁ ≤ g₁)",
+        txtFallback: "3. נסיגה (Fallback): בדיקת פרטו מלאה",
+        lblNarrativeTitle: "סיפור המהלך הנוכחי",
+        lblDebuggerTitle: "מעקב שורות קוד (L-NAMOA*dr-mvh)",
+        lblArchHeader: "ההבדל הארכיטקטוני המהותי: מדוע FAST2 נחנק ואיך FAST3 ניצח",
+        tF2: "❌ צוואר הבקבוק ב-FAST2",
+        dF2: "ב-98.5% ממקרי ה-Fallback, המסלולים שורדים (אינם נשלטים). כדי להוכיח שאף מסלול עבר אינו שולט במסלול החדש, אי אפשר לבצע יציאה מוקדמת (early break). חייבים לסרוק ליניארית את כל אלפי המסלולים ב-G_cl(s) עד האחרון שבהם. במופעי גריד כבדים זה יצר 1.35 מיליארד השוואות ושרף מעל 85% מזמן הריצה!",
+        tF3: "🚀 הפתרון של FAST3 (ArenaGcl)",
+        dF3: "FAST3 שומר חוצץ שטוח של עד 128 איברים בלבד (הנכנס ל-L1 Cache ללא מצביעים). מעבר ל-128, הקבוצה מוקפאת לתוך עץ K-d מלא על כל M הממדים. ב-Fallback, תיבות התחימה (lo > q) פוסלות ענפים שלמים ב-O(1). כמות הבדיקות צונחת מ-1.35 מיליארד ל-6.2 מיליון (ירידה של פי 217), ומניבה האצה של עד פי 8.97 מעל FAST2 ועד פי 53 מעל מאיה!",
+        btnPlay: "השהה",
+        btnPause: "נגן",
+        emptyHeap: "תור OPEN ריק כרגע",
+        emptyClosed: "טרם נסגרו מסלולים בצומת s",
+
+        steps: [
+          {
+            title: "תמונת הפתיחה",
+            badge: "שלב 1 מתוך 8",
+            algo: "<strong>מצב החיפוש ההתחלתי:</strong><br>• בעבר התגלה ביעד פתרון שלם עם עלות בממד השני: <span class='hl-ok'>T = 6</span>.<br>• בצומת s ממתינות שתי היוריסטיקות מתחרות ב-H(s):<br>  - <span class='hl-p1'>h⁽¹⁾ = (1, 3)</span>: אופטימית בציר 1, בינונית בציר 2.<br>  - <span class='hl-p2'>h⁽²⁾ = (5, 1)</span>: שמרנית בציר 1, מצוינת בציר 2.<br>התור ממיין בסדר עולה של f₁ = g₁ + h₁.",
+            analogy: "<strong>משל הדירות – הפתיחה:</strong><br>אנחנו מחפשים דירה ומסדרים את המציאות לפי מחיר עולה.<br>כבר ידוע לנו על דירה ביעד במרחק 6 דקות מהעבודה (T=6).<br>כעת אנחנו בצומת החלטה שבו יש שתי הערכות לגבי העתיד: אחת אופטימית במחיר אך רחוקה, והשנייה יקרה במחיר אך קרובה במיוחד.",
+            lines: ["line24"]
+          },
+          {
+            title: "הגעת מסלול 1",
+            badge: "שלב 2 מתוך 8",
+            algo: "<strong>הגעת מסלול 1 לצומת s:</strong><br>• עלות צבורה: g⁽¹⁾ = (10, 2).<br>• פונקציית CHOOSEH בודקת את h⁽¹⁾=(1, 3):<br>  f = (10+1, 2+3) = (11, 5).<br>• בדיקה מול סף היעד: האם 6 ≤ 5? <strong>לא!</strong><br><span class='hl-ok'>✔ h⁽¹⁾ מאושרת!</span> מסלול 1 מוכנס ל-OPEN עם <strong>מפתח עדיפות f₁ = 11</strong>.",
+            analogy: "<strong>דירה 1 נבדקת:</strong><br>עולה 10 ש\"ח, מרחק 2 דק'. ההערכה האופטימית צופה סה\"כ הוצאה של 11 ומרחק 5.<br>המרחק (5) עדיף על הדירה הידועה ביעד (6), ולכן היא מאושרת ונכנסת לקלסר עם דירוג 11.",
+            lines: ["line26", "line35", "line39", "line32"]
+          },
+          {
+            title: "הגעת מסלול 2 (פסילת h₁)",
+            badge: "שלב 3 מתוך 8",
+            algo: "<strong>הגעת מסלול 2 לצומת s:</strong><br>• עלות: g⁽²⁾ = (8, 4) – עדיף בציר 1 (8 < 10), יקר בציר 2 (4 > 2).<br>• CHOOSEH מנסה קודם את h⁽¹⁾=(1, 3):<br>  f = (8+1, 4+3) = (9, 7). סף יעד: 6 ≤ 7? <span class='hl-err'>כן! נשלט ע\"י היעד!</span><br><span class='hl-err'>✖ h⁽¹⁾ נפסלת ונזרקת עבור מסלול 2!</span><br>• נכפית עליו h⁽²⁾=(5, 1) ➔ f = (13, 5). 6 ≤ 5 לא נשלט.<br>מסלול 2 נכנס ל-OPEN עם <strong>מפתח עדיפות f₁ = 13</strong>.",
+            analogy: "<strong>דירה 2 – ההערכה האופטימית נפסלת:</strong><br>הדירה במציאות זולה יותר (8 ש\"ח!). אבל כשהיא מנסה את ההערכה האופטימית, המרחק יוצא 7 דקות – גרוע מהיעד הקיים (6).<br>לכן ההערכה הזו נפסלת, והיא נאלצת לקחת הערכה פסימית שמקפיצה את הדירוג שלה ל-13.",
+            lines: ["line35", "line37", "line39", "line32"]
+          },
+          {
+            title: "שליפת מסלול 1 מ-OPEN",
+            badge: "שלב 4 מתוך 8",
+            algo: "<strong>שליפה ראשונה מתוך OPEN:</strong><br>התור שולף את מפתח ה-f₁ הקטן ביותר.<br>מאחר ש-<strong>11 < 13</strong>, מסלול 1 נשלף ראשון מ-OPEN!<br>הוא מתווסף לקבוצה הסגורה: G_cl(s) = {(10, 2)}, ומעדכן את החסם המקומי:<br><span class='hl-warn'>max g₁(s) = 10</span>.",
+            analogy: "<strong>הדירה היקרה נשלפת ראשונה:</strong><br>הקלסר שולף לפי הדירוג החיצוני. 11 עדיף על 13, ולכן דירה 1 נבדקת ראשונה ונרשם במערכת שראינו דירה שעלתה 10 ש\"ח.",
+            lines: ["line8", "line42"]
+          },
+          {
+            title: "שליפת מסלול 2 ושבירת הסדר",
+            badge: "שלב 5 מתוך 8",
+            algo: "<strong>שליפת מסלול 2 והפרת הסדר (Order Violation):</strong><br>מסלול 2 נשלף (f₁=13) ומגיע לצומת s עם <strong>g₁ = 8</strong>.<br>סדר ערכי ה-g₁ המגיעים לצומת ירד מ-10 ל-8! המונוטוניות התרסקה.<br><strong>פרדוקס ה-MVH:</strong> מסלול עם עלות g₁ עדיפה נשלף מאוחר בגלל היוריסטיקה שמרנית שנכפתה עליו.",
+            analogy: "<strong>שבירת הסדר בצומת:</strong><br>מגיעה דירה 2. למרות שנשלפה מאוחר יותר, היא בפועל זולה בהרבה (8 ש\"ח מול 10 ש\"ח). הנחת היסוד שהדירות מתייקרות ככל שמתקדמים – התרסקה לחלוטין.",
+            lines: ["line8", "line42"]
+          },
+          {
+            title: "אשליית ה-Tr ואזעקת הבטיחות",
+            badge: "שלב 6 מתוך 8",
+            algo: "<strong>בדיקת הקיצוץ (Tr) ואזעקת הבטיחות:</strong><br>1. בדיקת Tr (שורה 42): 2 ≤ 4 מתקיים! לכאורה מסלול 1 שולט במסלול 2.<br>2. אימות מונוטוניות (שורה 43): האם <strong>10 ≤ 8</strong>? <span class='hl-err'>שקר! התנאי נכשל!</span><br><span class='hl-err'>🚨 אזעקה הופעלה:</span> בדיקת ה-Tr מטעה! אסור לגזום את המסלול על פיה.",
+            analogy: "<strong>אשליית קיצור הדרך:</strong><br>קיצור הדרך מסתכל רק על המרחק: 2 דקות מנצח 4 דקות! נדמה שדירה 1 מנצחת את דירה 2.<br>אבל בדיקת הבטיחות שואלת: 'האם המחיר שלה (8) יקר או שווה ל-10?' לא! היא זולה בהרבה! קיצור הדרך נפסל.",
+            lines: ["line42", "line43"]
+          },
+          {
+            title: "הנסיגה הושלמה: מסלול 2 ניצל!",
+            badge: "שלב 7 מתוך 8",
+            algo: "<strong>ביצוע הנסיגה (Fallback) לבדיקת פרטו מלאה:</strong><br>השוואת (10, 2) מול (8, 4) בשני הממדים:<br>• ציר 1: 10 ≤ 8? <strong>לא!</strong> (מסלול 2 עדיף ב-2 יחידות)<br>• ציר 2: 2 ≤ 4? <strong>כן</strong> (מסלול 1 עדיף ב-2 יחידות)<br><span class='hl-ok'>✔ אף אחד אינו שולט! מדובר בטרייד-אוף פרטו חוקי.</span><br>מסלול 2 ניצל ונכנס ל-G_cl(s). חזית פרטו נשמרה ב-100%!",
+            analogy: "<strong>הבדיקה המלאה: מציאה אמיתית ניצלה!</strong><br>בודקים את שני המדדים יחד: דירה 1 קרובה יותר, אך דירה 2 זולה יותר! אף אחת לא מנצחת את השנייה.<br>בזכות הנסיגה (Fallback), לא פספסנו דירה מצוינת והיא נשמרה במאגר!",
+            lines: ["line45", "line47"]
+          },
+          {
+            title: "המהפכה ב-FAST3",
+            badge: "שלב 8 מתוך 8",
+            algo: "<strong>מדוע FAST2 נחנק ואיך FAST3 ניצח:</strong><br>• ב-98.5% ממקרי ה-Fallback, המסלולים שורדים (כמו מסלול 2).<br>• כדי להוכיח אי-שליטה, FAST2 נאלץ לסרוק ליניארית 10,000 מסלולים ללא יציאה מוקדמת (1.35 מיליארד בדיקות).<br>• FAST3 בונה עץ K-d מלא על כל M הממדים ברגע שיש מעל 128 מסלולים. תיבות התחימה פוסלות ענפים ב-O(1), והבדיקות קורסות מ-1.35 מיליארד ל-6.2 מיליון (פי 8.97 מהר יותר!).",
+            analogy: "<strong>המעבר מקלסר לארונית מגירות חכמה:</strong><br>ב-FAST2 כל 10,000 הדירות היו בקלסר אחד ארוך. כדי להוכיח שדירה חדשה היא מציאה, דפדפו בכל 10,000 הדפים שוב ושוב.<br>ב-FAST3 סידרו את הדירות בארונית מגירות ממוינת לפי טווחים (עץ K-d). מספיק להעיף מבט על הפתק של המגירה כדי לפסול אלפי דירות בשבריר שנייה!",
+            lines: ["line45", "line47"]
+          }
+        ]
+      },
+
+      en: {
+        lblTitle: "⚡ The Fallback Story in MVH: Step-by-Step",
+        lblSubtitle: "Full algorithmic trace: from heuristic pruning to order violation and FAST3 KD-Tree acceleration",
+        lblCanvasTitle: "Cost Space: g₁ (Omitted Axis) vs g₂ (Truncated Tr Axis)",
+        legP1: "Path 1: (10, 2)",
+        legP2: "Path 2: (8, 4)",
+        legGoal: "Goal Bound: T = 6",
+        legTr: "Misleading Tr Strip",
+        legCone: "True Pareto Cone",
+        lblMemTitle: "Live Memory & State Watch Window",
+        lblHeapTitle: "OPEN Heap (Sorted by f₁ ascending)",
+        lblClosedTitle: "Local Closed Set G_cl(s)",
+        lblBoundTitle: "Monotonicity Bound: max g₁(s)",
+        txtTr: "1. Truncated Check (Tr(g') ≤ Tr(g))",
+        txtMono: "2. Monotonicity Guard (max g'₁ ≤ g₁)",
+        txtFallback: "3. Fallback: Full Pareto Dominance Check",
+        lblNarrativeTitle: "Current Step Walkthrough",
+        lblDebuggerTitle: "Pseudocode Debugger Trace (L-NAMOA*dr-mvh)",
+        lblArchHeader: "Architectural Bottleneck & Resolution: FAST2 vs FAST3",
+        tF2: "❌ The FAST2 Bottleneck",
+        dF2: "In 98.5% of fallback occurrences, candidate paths survive (are non-dominated). Proving that NO past path dominates requires scanning to the very end—zero early breaks possible. In heavy grids, FAST2 performed 1.35 billion comparisons and burned 85%+ of execution time in this loop!",
+        tF3: "🚀 The FAST3 ArenaGcl Solution",
+        dF3: "FAST3 keeps a flat 128-element buffer in L1 cache. When local frontier exceeds 128, it freezes into a balanced full M-dimensional KD-Tree. In fallback, bounding box rejections (lo > q) discard entire subtrees in O(1). Operations drop from 1.35 billion to 6.2 million (217x fewer), yielding 8.97x speedup over FAST2 and 53x over Maya!",
+        btnPlay: "Pause",
+        btnPause: "Play",
+        emptyHeap: "OPEN Heap is currently empty",
+        emptyClosed: "No closed paths at state s yet",
+
+        steps: [
+          {
+            title: "Initial Setup",
+            badge: "Step 1 of 8",
+            algo: "<strong>Initial Setup & Search State:</strong><br>• A complete goal solution was previously found with cost in dim 2: <span class='hl-ok'>T = 6</span>.<br>• Candidate heuristics at state s in H(s):<br>  - <span class='hl-p1'>h⁽¹⁾ = (1, 3)</span>: Optimistic in dim 1, moderate in dim 2.<br>  - <span class='hl-p2'>h⁽²⁾ = (5, 1)</span>: Conservative in dim 1, excellent in dim 2.<br>OPEN sorts nodes by f₁ = g₁ + h₁ ascending.",
+            analogy: "<strong>The Apartment Analogy – Setup:</strong><br>We are searching for apartments sorted by ascending estimated cost.<br>We already know of an apartment at the destination with commute 6 mins (T=6).<br>At this crossroads we have two forecasts: one optimistic in price but far, the other expensive in price but very close.",
+            lines: ["line24"]
+          },
+          {
+            title: "Path 1 Arrives",
+            badge: "Step 2 of 8",
+            algo: "<strong>Path 1 Arrives at state s:</strong><br>• Accumulated cost: g⁽¹⁾ = (10, 2).<br>• CHOOSEH tests first heuristic h⁽¹⁾=(1, 3):<br>  f = (10+1, 2+3) = (11, 5).<br>• Dominance test vs Goal: Is 6 ≤ 5? <strong>No!</strong><br><span class='hl-ok'>✔ h⁽¹⁾ accepted!</span> Path 1 enters OPEN heap with <strong>priority key f₁ = 11</strong>.",
+            analogy: "<strong>Apartment #1 Evaluated:</strong><br>Price 10, commute 2. The optimistic forecast predicts total cost 11, commute 5.<br>Commute 5 beats the known goal 6, so it's accepted with priority key 11.",
+            lines: ["line26", "line35", "line39", "line32"]
+          },
+          {
+            title: "Path 2 (h₁ Pruned!)",
+            badge: "Step 3 of 8",
+            algo: "<strong>Path 2 Arrives at state s:</strong><br>• Cost: g⁽²⁾ = (8, 4) – Better in dim 1 (8 < 10), worse in dim 2 (4 > 2).<br>• CHOOSEH tests h⁽¹⁾=(1, 3) first:<br>  f = (8+1, 4+3) = (9, 7). Goal test: 6 ≤ 7? <span class='hl-err'>TRUE! Dominated by Goal!</span><br><span class='hl-err'>✖ h⁽¹⁾ is pruned & discarded for Path 2!</span><br>• Forced to test h⁽²⁾=(5, 1) ➔ f = (13, 5). 6 ≤ 5 survives.<br>Path 2 enters OPEN with <strong>priority key f₁ = 13</strong>.",
+            analogy: "<strong>Apartment #2 – Optimistic forecast rejected:</strong><br>It's actually cheaper (price 8)! But with the first forecast, commute would be 7 mins—worse than the goal (6).<br>So that forecast is thrown out, forcing it to take a conservative forecast that raises its key to 13.",
+            lines: ["line35", "line37", "line39", "line32"]
+          },
+          {
+            title: "Path 1 Popped First",
+            badge: "Step 4 of 8",
+            algo: "<strong>Path 1 Popped from OPEN:</strong><br>The queue pops the minimum f₁.<br>Because <strong>11 < 13</strong>, Path 1 is popped first from OPEN!<br>It enters Closed Set: G_cl(s) = {(10, 2)}, and updates local register:<br><span class='hl-warn'>max g₁(s) = 10</span>.",
+            analogy: "<strong>The expensive apartment pops first:</strong><br>The queue only sees estimated key. 11 beats 13, so Apartment 1 is popped first and records in memory that we saw an apartment costing 10.",
+            lines: ["line8", "line42"]
+          },
+          {
+            title: "Path 2 Popped & Order Violation",
+            badge: "Step 5 of 8",
+            algo: "<strong>Path 2 Popped: The Order Violation:</strong><br>Path 2 is popped (f₁=13) and arrives at state s with <strong>g₁ = 8</strong>.<br>The arrival sequence of g₁ at state s dropped from 10 to 8! Monotonicity collapsed.<br><strong>The MVH Paradox:</strong> A path with superior true cost was popped later because of a conservative heuristic forced on it.",
+            analogy: "<strong>Order breakdown at the node:</strong><br>Apartment 2 arrives. Despite popping later, it is much cheaper (price 8 vs 10). The assumption that apartments get more expensive over time has collapsed.",
+            lines: ["line8", "line42"]
+          },
+          {
+            title: "The Tr Illusion & Alarm",
+            badge: "Step 6 of 8",
+            algo: "<strong>Truncated Check Trap & Monotonicity Alarm:</strong><br>1. Tr Check (Line 42): 2 ≤ 4 is TRUE! Looking only at dim 2, Path 1 appears to dominate Path 2!<br>2. Monotonicity Guard (Line 43): Is <strong>10 ≤ 8</strong>? <span class='hl-err'>FALSE!</span><br><span class='hl-err'>🚨 Alarm Triggered:</span> Tr check is untrustworthy! The algorithm catches the trap and triggers a Fallback.",
+            analogy: "<strong>The Shortcut Trap:</strong><br>The shortcut only checks commute: 2 mins beats 4 mins! It looks like Apartment 1 wins.<br>But safety checks: 'Is price (8) ≥ 10?' No, it's cheaper! The shortcut is aborted and full verification begins.",
+            lines: ["line42", "line43"]
+          },
+          {
+            title: "Fallback Executed: Saved!",
+            badge: "Step 7 of 8",
+            algo: "<strong>Fallback to Full Pareto Dominance Check:</strong><br>Compare full vectors on both dimensions: (10, 2) vs (8, 4):<br>• Dim 1: 10 ≤ 8? <strong>No!</strong> (Path 2 is better by 2 units)<br>• Dim 2: 2 ≤ 4? <strong>Yes</strong> (Path 1 is better by 2 units)<br><span class='hl-ok'>✔ Neither dominates! Legitimate Pareto trade-off.</span><br>Path 2 is SAVED and committed to G_cl(s). Pareto optimality 100% preserved!",
+            analogy: "<strong>Full Verification: Bargain Saved!</strong><br>Comparing both: Apartment 1 is closer, but Apartment 2 is cheaper! Neither dominates.<br>Thanks to Fallback, we didn't lose an optimal bargain!",
+            lines: ["line45", "line47"]
+          },
+          {
+            title: "The FAST3 Breakthrough",
+            badge: "Step 8 of 8",
+            algo: "<strong>The FAST2 Bottleneck vs FAST3 Resolution:</strong><br>• In 98.5% of fallbacks, paths survive (like Path 2).<br>• Proving non-dominance in FAST2 required scanning 10,000 vectors with zero early breaks (1.35 billion comparisons).<br>• FAST3 builds a full M-dimensional KD-Tree once frontier exceeds 128 elements. Bounding boxes prune whole subtrees in O(1), cutting comparisons to 6.2 million (8.97x faster!).",
+            analogy: "<strong>From flat binder to sorted drawer cabinet:</strong><br>In FAST2, all 10,000 apartments were in a single binder. Proving a new apartment was unique required reading every single page.<br>In FAST3, apartments are filed into a sorted KD-Tree cabinet. A glance at the drawer bounds prunes thousands in a millisecond!",
+            lines: ["line45", "line47"]
+          }
+        ]
+      }
+    };
+
+    let lang = 'he';
+    let mode = 'algo';
+    let currentStep = 0;
+    const totalSteps = 8;
+    let isPlaying = false;
+    let timer = null;
+    let speedDelay = 4000;
+
+    const pageBody = document.getElementById("pageBody");
+    const canvas = document.getElementById("costCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById("btnModeAlgo").classList.toggle("active", m === 'algo');
+      document.getElementById("btnModeAnalogy").classList.toggle("active", m === 'analogy');
+      render();
+    }
+
+    function toggleLang() {
+      lang = (lang === 'he') ? 'en' : 'he';
+      if (lang === 'en') {
+        pageBody.classList.add('ltr');
+        pageBody.setAttribute('dir', 'ltr');
+        document.getElementById("btnLang").innerText = "עברית";
+      } else {
+        pageBody.classList.remove('ltr');
+        pageBody.setAttribute('dir', 'rtl');
+        document.getElementById("btnLang").innerText = "English";
+      }
+      updateUI();
+      render();
+    }
+
+    function updateUI() {
+      const c = content[lang];
+      document.getElementById("lblTitle").innerText = c.lblTitle;
+      document.getElementById("lblSubtitle").innerText = c.lblSubtitle;
+      document.getElementById("lblCanvasTitle").innerText = c.lblCanvasTitle;
+      document.getElementById("legP1").innerText = c.legP1;
+      document.getElementById("legP2").innerText = c.legP2;
+      document.getElementById("legGoal").innerText = c.legGoal;
+      document.getElementById("legTr").innerText = c.legTr;
+      document.getElementById("legCone").innerText = c.legCone;
+      document.getElementById("lblMemTitle").innerText = c.lblMemTitle;
+      document.getElementById("lblHeapTitle").innerText = c.lblHeapTitle;
+      document.getElementById("lblClosedTitle").innerText = c.lblClosedTitle;
+      document.getElementById("lblBoundTitle").innerText = c.lblBoundTitle;
+      document.getElementById("txtTr").innerText = c.txtTr;
+      document.getElementById("txtMono").innerText = c.txtMono;
+      document.getElementById("txtFallback").innerText = c.txtFallback;
+      document.getElementById("lblNarrativeTitle").innerText = c.lblNarrativeTitle;
+      document.getElementById("lblDebuggerTitle").innerText = c.lblDebuggerTitle;
+      document.getElementById("lblArchHeader").innerText = c.lblArchHeader;
+      document.getElementById("tF2").innerText = c.tF2;
+      document.getElementById("dF2").innerText = c.dF2;
+      document.getElementById("tF3").innerText = c.tF3;
+      document.getElementById("dF3").innerText = c.dF3;
+
+      buildTimeline();
+    }
+
+    function buildTimeline() {
+      const bar = document.getElementById("timelineBar");
+      bar.innerHTML = content[lang].steps.map((s, i) => `
+        <div class="timeline-step ${i === currentStep ? 'active' : ''}" onclick="goTo(${i})">
+          <span class="t-num">${i + 1}</span>
+          <span class="t-title">${s.title}</span>
+        </div>
+      `).join("");
+    }
+
+    // Canvas Coordinate Mapping
+    const xMin = 0, xMax = 14;
+    const yMin = 0, yMax = 9;
+
+    function toScreenX(x) {
+      return 42 + ((x - xMin) / (xMax - xMin)) * (canvas.width - 64);
+    }
+    function toScreenY(y) {
+      return (canvas.height - 35) - ((y - yMin) / (yMax - yMin)) * (canvas.height - 55);
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * (window.devicePixelRatio || 1);
+      canvas.height = rect.height * (window.devicePixelRatio || 1);
+      drawCanvas();
+    }
+    window.addEventListener("resize", resizeCanvas);
+
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const dpr = window.devicePixelRatio || 1;
+
+      ctx.strokeStyle = "#17233d";
+      ctx.lineWidth = 1 * dpr;
+
+      for (let x = 2; x <= 12; x += 2) {
+        const sx = toScreenX(x);
+        ctx.beginPath();
+        ctx.moveTo(sx, toScreenY(yMin));
+        ctx.lineTo(sx, toScreenY(yMax));
+        ctx.stroke();
+
+        ctx.fillStyle = "#64748b";
+        ctx.font = `${9.5 * dpr}px monospace`;
+        ctx.textAlign = "center";
+        ctx.fillText(x, sx, toScreenY(yMin) + 14 * dpr);
+      }
+
+      for (let y = 2; y <= 8; y += 2) {
+        const sy = toScreenY(y);
+        ctx.beginPath();
+        ctx.moveTo(toScreenX(xMin), sy);
+        ctx.lineTo(toScreenX(xMax), sy);
+        ctx.stroke();
+
+        ctx.fillStyle = "#64748b";
+        ctx.font = `${9.5 * dpr}px monospace`;
+        ctx.textAlign = "right";
+        ctx.fillText(y, toScreenX(xMin) - 8 * dpr, sy + 3 * dpr);
+      }
+
+      // Axes
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(xMin), toScreenY(yMin));
+      ctx.lineTo(toScreenX(xMax), toScreenY(yMin));
+      ctx.moveTo(toScreenX(xMin), toScreenY(yMin));
+      ctx.lineTo(toScreenX(xMin), toScreenY(yMax));
+      ctx.stroke();
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = `bold ${10 * dpr}px sans-serif`;
+      ctx.textAlign = "right";
+      ctx.fillText("g₁ (Omitted Axis)", toScreenX(xMax), toScreenY(yMin) - 8 * dpr);
+      ctx.textAlign = "left";
+      ctx.fillText("g₂ (Tr Axis)", toScreenX(xMin) + 8 * dpr, toScreenY(yMax) + 14 * dpr);
+    }
+
+    function drawCanvas() {
+      drawGrid();
+      const dpr = window.devicePixelRatio || 1;
+
+      // Goal Horizon T=6
+      const gy = toScreenY(6);
+      ctx.strokeStyle = "#ec4899";
+      ctx.lineWidth = 1.8 * dpr;
+      ctx.setLineDash([4 * dpr, 4 * dpr]);
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(xMin), gy);
+      ctx.lineTo(toScreenX(xMax), gy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "#ec4899";
+      ctx.font = `bold ${9.5 * dpr}px sans-serif`;
+      ctx.textAlign = "left";
+      ctx.fillText("Goal Threshold: T = 6", toScreenX(0.5), gy - 6 * dpr);
+
+      // max_g1 line on step >= 3
+      if (currentStep >= 3) {
+        const mx = toScreenX(10);
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 1.5 * dpr;
+        ctx.setLineDash([3 * dpr, 3 * dpr]);
+        ctx.beginPath();
+        ctx.moveTo(mx, toScreenY(yMin));
+        ctx.lineTo(mx, toScreenY(yMax));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#facc15";
+        ctx.font = `bold ${9.5 * dpr}px monospace`;
+        ctx.textAlign = "center";
+        ctx.fillText("max_g₁ = 10", mx, toScreenY(yMax) - 6 * dpr);
+      }
+
+      // Step 5: Tr False Dominance Strip (g2 >= 2)
+      if (currentStep === 5) {
+        const p1y = toScreenY(2);
+        const topY = toScreenY(yMax);
+        ctx.fillStyle = "rgba(248, 113, 113, 0.18)";
+        ctx.fillRect(toScreenX(xMin), topY, toScreenX(xMax) - toScreenX(xMin), p1y - topY);
+
+        ctx.strokeStyle = "#f87171";
+        ctx.lineWidth = 1.2 * dpr;
+        ctx.setLineDash([3 * dpr, 3 * dpr]);
+        ctx.strokeRect(toScreenX(xMin), topY, toScreenX(xMax) - toScreenX(xMin), p1y - topY);
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#f87171";
+        ctx.font = `bold ${9.5 * dpr}px sans-serif`;
+        ctx.textAlign = "left";
+        ctx.fillText("1D Tr Region: g₂ ≥ 2 (FALSE DOMINANCE ILLUSION!)", toScreenX(1), toScreenY(2.8));
+      }
+
+      // Step 6 & 7: True 2D Pareto cone {x >= 10, y >= 2}
+      if (currentStep >= 6) {
+        const p1x = toScreenX(10);
+        const p1y = toScreenY(2);
+        const topY = toScreenY(yMax);
+        const rightX = toScreenX(xMax);
+
+        ctx.fillStyle = "rgba(56, 189, 248, 0.22)";
+        ctx.fillRect(p1x, topY, rightX - p1x, p1y - topY);
+
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2 * dpr;
+        ctx.strokeRect(p1x, topY, rightX - p1x, p1y - topY);
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = `bold ${9.5 * dpr}px sans-serif`;
+        ctx.textAlign = "left";
+        ctx.fillText("True 2D Dominance Cone (x ≥ 10, y ≥ 2)", p1x + 8 * dpr, toScreenY(3.5));
+      }
+
+      // Plot Points
+      // Path 1
+      if (currentStep >= 1) {
+        const x = toScreenX(10), y = toScreenY(2);
+        ctx.beginPath();
+        ctx.arc(x, y, 7 * dpr, 0, Math.PI * 2);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2 * dpr;
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = `bold ${10 * dpr}px sans-serif`;
+        ctx.textAlign = "left";
+        ctx.fillText("Path 1 (10, 2)", x + 10 * dpr, y - 4 * dpr);
+      }
+
+      // Path 2
+      if (currentStep >= 2) {
+        const x = toScreenX(8), y = toScreenY(4);
+        ctx.beginPath();
+        ctx.arc(x, y, currentStep >= 6 ? 8.5 * dpr : 7 * dpr, 0, Math.PI * 2);
+        ctx.fillStyle = currentStep >= 6 ? "#4ade80" : "#fb923c";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2 * dpr;
+        ctx.stroke();
+
+        ctx.fillStyle = currentStep >= 6 ? "#4ade80" : "#fb923c";
+        ctx.font = `bold ${10 * dpr}px sans-serif`;
+        ctx.textAlign = "right";
+        const tag = currentStep >= 6 ? "Path 2 (8, 4) — SURVIVED!" : "Path 2 (8, 4)";
+        ctx.fillText(tag, x - 10 * dpr, y - 6 * dpr);
+      }
+
+      // Step 4: Warning text for order violation
+      if (currentStep === 4 || currentStep === 5) {
+        const x = toScreenX(8), y = toScreenY(4);
+        ctx.fillStyle = "#f87171";
+        ctx.font = `bold ${11 * dpr}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText("⚠️ ORDER VIOLATION: g₁ = 8 < 10!", x, y - 18 * dpr);
+      }
+    }
+
+    function render() {
+      const c = content[lang];
+      const s = c.steps[currentStep];
+
+      document.getElementById("stepBadge").innerText = s.badge;
+      document.getElementById("stepTag").innerText = `STEP ${currentStep + 1}`;
+      document.getElementById("narrativeBox").innerHTML = (mode === 'analogy') ? s.analogy : s.algo;
+
+      // Update Timeline
+      const nodes = document.querySelectorAll(".timeline-step");
+      nodes.forEach((n, idx) => n.classList.toggle("active", idx === currentStep));
+
+      // Update Memory Watch
+      const heapBox = document.getElementById("heapBox");
+      const closedBox = document.getElementById("closedBox");
+      const alarmBox = document.getElementById("alarmBox");
+      const maxG1Val = document.getElementById("maxG1Val");
+
+      const chkTr = document.getElementById("chkTr");
+      const bdgTr = document.getElementById("bdgTr");
+      const chkMono = document.getElementById("chkMono");
+      const bdgMono = document.getElementById("bdgMono");
+      const chkFallback = document.getElementById("chkFallback");
+      const bdgFallback = document.getElementById("bdgFallback");
+
+      alarmBox.className = "alarm-box";
+      chkTr.className = "check-step"; bdgTr.className = "badge-status badge-idle"; bdgTr.innerText = "-";
+      chkMono.className = "check-step"; bdgMono.className = "badge-status badge-idle"; bdgMono.innerText = "-";
+      chkFallback.className = "check-step"; bdgFallback.className = "badge-status badge-idle"; bdgFallback.innerText = "-";
+
+      if (currentStep === 0) {
+        heapBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">${c.emptyHeap}</span>`;
+        closedBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">${c.emptyClosed}</span>`;
+        maxG1Val.innerText = "-∞";
+      } else if (currentStep === 1) {
+        heapBox.innerHTML = `<div class="chip p1"><span>Path 1: g=(10,2), h=(1,3)</span><strong style="color:var(--p1)">f₁=11</strong></div>`;
+        closedBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">${c.emptyClosed}</span>`;
+        maxG1Val.innerText = "-∞";
+      } else if (currentStep === 2) {
+        heapBox.innerHTML = `
+          <div class="chip p1"><span>Path 1: g=(10,2)</span><strong style="color:var(--p1)">f₁=11</strong></div>
+          <div class="chip p2"><span>Path 2: g=(8,4), h=(5,1)</span><strong style="color:var(--p2)">f₁=13</strong></div>
+        `;
+        closedBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">${c.emptyClosed}</span>`;
+        maxG1Val.innerText = "-∞";
+      } else if (currentStep === 3) {
+        heapBox.innerHTML = `<div class="chip p2"><span>Path 2: g=(8,4)</span><strong style="color:var(--p2)">f₁=13</strong></div>`;
+        closedBox.innerHTML = `<div class="chip p1"><span>Path 1 (Closed)</span><span>g=(10,2)</span></div>`;
+        maxG1Val.innerText = "10";
+      } else if (currentStep === 4) {
+        heapBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">${c.emptyHeap}</span>`;
+        closedBox.innerHTML = `<div class="chip p1"><span>Path 1 (Closed)</span><span>g=(10,2)</span></div>`;
+        maxG1Val.innerText = "10";
+      } else if (currentStep === 5) {
+        heapBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">${c.emptyHeap}</span>`;
+        closedBox.innerHTML = `<div class="chip p1"><span>Path 1 (Closed)</span><span>g=(10,2)</span></div>`;
+        maxG1Val.innerText = "10";
+        alarmBox.className = "alarm-box violation";
+
+        chkTr.className = "check-step pass";
+        bdgTr.className = "badge-status badge-pass";
+        bdgTr.innerText = "TRUE (2 ≤ 4)";
+
+        chkMono.className = "check-step fail";
+        bdgMono.className = "badge-status badge-fail";
+        bdgMono.innerText = "FAIL (10 ≤ 8 False!)";
+      } else if (currentStep >= 6) {
+        heapBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">${c.emptyHeap}</span>`;
+        closedBox.innerHTML = `
+          <div class="chip p1"><span>Path 1 (Closed)</span><span>g=(10,2)</span></div>
+          <div class="chip ok"><span>Path 2 (SURVIVED!)</span><strong style="color:var(--ok)">g=(8,4)</strong></div>
+        `;
+        maxG1Val.innerText = "10";
+
+        chkTr.className = "check-step pass";
+        bdgTr.className = "badge-status badge-pass";
+        bdgTr.innerText = "Misleading Tr";
+
+        chkMono.className = "check-step fail";
+        bdgMono.className = "badge-status badge-fail";
+        bdgMono.innerText = "Order Violation!";
+
+        chkFallback.className = "check-step pass";
+        bdgFallback.className = "badge-status badge-pass";
+        bdgFallback.innerText = "NON-DOMINATED!";
+      }
+
+      // Code highlighting
+      const lines = document.querySelectorAll(".code-line");
+      lines.forEach(l => l.className = "code-line");
+      s.lines.forEach(lid => {
+        const el = document.getElementById(lid);
+        if (el) {
+          if (currentStep === 5) el.className = "code-line highlight-warn";
+          else if (currentStep >= 6) el.className = "code-line highlight-success";
+          else el.className = "code-line active";
+        }
+      });
+
+      drawCanvas();
+    }
+
+    function next() {
+      currentStep = (currentStep + 1) % totalSteps;
+      render();
+    }
+
+    function prev() {
+      currentStep = (currentStep - 1 + totalSteps) % totalSteps;
+      render();
+    }
+
+    function goTo(s) {
+      currentStep = s;
+      render();
+    }
+
+    function reset() {
+      currentStep = 0;
+      render();
+    }
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      document.getElementById("btnPlay").innerText = isPlaying ? content[lang].btnPlay : content[lang].btnPause;
+      if (isPlaying) {
+        startTimer();
+      } else {
+        clearInterval(timer);
+      }
+    }
+
+    function cycleSpeed() {
+      const b = document.getElementById("btnSpeed");
+      if (speedDelay === 4000) { speedDelay = 2200; b.innerText = "2.0x"; }
+      else if (speedDelay === 2200) { speedDelay = 6000; b.innerText = "0.7x"; }
+      else { speedDelay = 4000; b.innerText = "1.0x"; }
+      if (isPlaying) startTimer();
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      timer = setInterval(() => next(), speedDelay);
+    }
+
+    // Keyboard navigation (Arrow keys)
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === " ") {
+        next();
+      } else if (e.key === "ArrowLeft") {
+        prev();
+      }
+    });
+
+    // Init
+    updateUI();
+    resizeCanvas();
+    render();
+    togglePlay();
+  </script>
+</body>
+</html>

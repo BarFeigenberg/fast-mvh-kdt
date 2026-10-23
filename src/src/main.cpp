@@ -12,6 +12,7 @@
 #include "fast_mvh/solvers/l_namoa_dr_mvh_kdt.h"
 #include "fast_mvh/solvers/l_namoa_dr_mvh_fast.h"
 #include "fast_mvh/solvers/l_namoa_dr_mvh_fast3.h"
+#include "fast_mvh/solvers/l_namoa_dr_mvh_ablation.h"
 #include "dr_optimizer.h"
 #include "parser.h"
 #include "parsers/multi_valued_heuristic_parser.h"
@@ -36,7 +37,9 @@ int main(int argc, char** argv) {
             ("h-tree-min", po::value<size_t>()->default_value(std::numeric_limits<size_t>::max()), "L_NAMOA_DR_MVH_FAST: build Roi heuristic tree when |H(s)| >= this")
             ("promote-min", po::value<size_t>()->default_value(8), "L_NAMOA_DR_MVH_FAST: min frontier size before K-d promotion")
             ("promote-scan", po::value<uint64_t>()->default_value(64), "L_NAMOA_DR_MVH_FAST: promote when mean flat scan length >= this")
-            ("fb-buffer", po::value<size_t>()->default_value(64), "L_NAMOA_DR_MVH_FAST3: unindexed fallback points before building a K-d block");
+            ("fb-buffer", po::value<size_t>()->default_value(64), "L_NAMOA_DR_MVH_FAST3: unindexed fallback points before building a K-d block")
+            ("fb-target", po::value<std::string>()->default_value("residue"), "Fallback target: 'residue' (R(s)) or 'history' (C(s))")
+            ("fb-mode", po::value<std::string>()->default_value("forest"), "Fallback mode: 'forest' (K-d forest) or 'linear' (linear scan)");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -170,6 +173,48 @@ int main(int argc, char** argv) {
                       << "\tnum_good_fallback=" << solver.num_good_fallback
                       << "\tnum_bad_fallback=" << solver.num_bad_fallback
                       << "\tnum_fallback_indexed=" << solver.num_fallback_indexed
+                      << "\n";
+            solutions.clear();
+        } else if (algorithm == "L_NAMOA_DR_MVH_ABLATION") {
+            L_NAMOA_DR_MVH_ABLATION solver(adj_matrix, eps);
+            solver.heuristic_tree_min = vm["h-tree-min"].as<size_t>();
+            solver.promotion.min_size = vm["promote-min"].as<size_t>();
+            solver.promotion.mean_scan = vm["promote-scan"].as<uint64_t>();
+            solver.fallback_buffer = vm["fb-buffer"].as<size_t>();
+            const std::string fb_target = vm["fb-target"].as<std::string>();
+            const std::string fb_mode = vm["fb-mode"].as<std::string>();
+            solver.fallback_target = (fb_target == "history" || fb_target == "c" || fb_target == "full_history") ?
+                L_NAMOA_DR_MVH_ABLATION::FallbackTarget::FULL_HISTORY :
+                L_NAMOA_DR_MVH_ABLATION::FallbackTarget::RESIDUE;
+            solver.fallback_mode = (fb_mode == "linear") ?
+                L_NAMOA_DR_MVH_ABLATION::FallbackMode::LINEAR :
+                L_NAMOA_DR_MVH_ABLATION::FallbackMode::FOREST;
+
+            solver(start, goal, mvh, solutions, timeout, sol_out, stats_out);
+
+            std::cout << "algorithm=L_NAMOA_DR_MVH_ABLATION"
+                      << "\tsource=" << start << "\ttarget=" << goal
+                      << "\tnum_solutions=" << solutions.size()
+                      << "\tnum_expansion=" << solver.num_expansion
+                      << "\tnum_generation=" << solver.num_generation
+                      << "\truntime_s=" << solver.runtime / CLOCKS_PER_SEC
+                      << "\ttime_limit_reached=" << solver.time_limit_reached
+                      << "\tcmpchk=" << solver.cmpchk
+                      << "\tcmpupd=" << solver.cmpupd
+                      << "\tcmp_chooseh=" << solver.cmp_chooseh
+                      << "\tcmp_full=" << solver.cmp_full
+                      << "\tcmpchk_fallback=" << solver.cmp_full
+                      << "\tnum_full_dominance_check=" << solver.num_full_dominance_check
+                      << "\tnum_good_fallback=" << solver.num_good_fallback
+                      << "\tnum_bad_fallback=" << solver.num_bad_fallback
+                      << "\tnum_fallback_indexed=" << solver.num_fallback_indexed
+                      << "\tt_fallback_query_s=" << solver.t_fallback_query
+                      << "\tt_index_build_s=" << solver.t_index_build
+                      << "\tt_tracking_s=" << solver.t_tracking
+                      << "\ttotal_indexed_vectors=" << solver.total_indexed_vectors
+                      << "\tpeak_indexed_vectors=" << solver.peak_indexed_vectors
+                      << "\tfb_target=" << fb_target
+                      << "\tfb_mode=" << fb_mode
                       << "\n";
             solutions.clear();
         } else {

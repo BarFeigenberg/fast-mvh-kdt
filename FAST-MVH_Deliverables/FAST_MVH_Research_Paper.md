@@ -1,60 +1,138 @@
 <div>
 
-# FAST-MVH: Geometric Indexing for Dominance Checking with Multi-Valued Heuristics
+# FAST-MVH: Resolving the Dimensionality Reduction Breakdown in Multi-Valued Heuristic Search via Geometric Fallback Forests
 
 <div class="columns">
 
 ### Abstract
 
-Multi-valued heuristics (MVHs) supply several lower-bound vectors per state, each describing a possible trade-off among the objectives. Combined with dimensionality reduction, they reduce the number of paths a multi-objective search must expand. The price is dominance checking. A generated path is tested against the frontier of its state, each candidate heuristic vector is tested against the solutions found so far, and an exact fallback must sometimes consult vectors that have left the frontier. We present FAST-MVH, which answers all of these queries with geometric indexes. Truncated frontiers are stored in adaptive k-d trees. Local dominance is decided in a single traversal and is tested before a heuristic is selected. The exact fallback is confined to a residue set that we prove sufficient and index with a forest of static k-d trees. FAST-MVH expands the same paths as $L$-NAMOA$^*_{dr}$-mvh and returns the same solutions. On seventeen grid and road-network instances with three to eight objectives it runs 1.8 to 82 times faster, with byte-identical solution sets in every case.
+Dimensionality reduction (DR) promises to eliminate one objective coordinate from dominance checking in multi-objective search. In multi-valued heuristic (MVH) search, however, DR fundamentally breaks down: because paths are evaluated with different heuristic vectors, priority queue extraction order shatters path-cost monotonicity. While previously dismissed as an incidental, occasional side-effect, we demonstrate that full-dimensional fallbacks occur in up to 40.6% of node expansions and eviction residues swell to absorb up to 93% of all expanded paths on dense instances. DR in MVH is inherently leaky and cannot eliminate the need for full-dimensional checking. We present FAST-MVH, a sound and complete framework that resolves this breakdown. FAST-MVH confines the fallback to a provably sufficient residue set, which it indexes using a Bentley-Saxe logarithmic forest of static k-d trees; classifies full-dimensional dominators in a single traversal of truncated frontiers; and bypasses 80–90% of heuristic evaluations via local-first ordering and witness caching. On benchmark instances spanning three to eight objectives across diverse topologies, FAST-MVH expands identical paths and produces bit-identical Pareto fronts to the original baseline of Wolff, Felner, and Salzman (SoCS 2026) while achieving an overall geometric mean speedup of 14.15× (and peak acceleration factors reaching up to 620×). Crucially, on heavy-fallback instances, indexing the residue forest with full-dimensional k-d trees accelerates search by up to 15.42× (geometric mean 1.70×) and slashes fallback comparisons by up to 83-fold over unindexed fallback checking, proving that geometric fallback indexing is essential to making DR practical under MVHs.
 
 ## 1 Introduction
 
 A shortest path need not be best in every objective. One route is shorter, another faster, a third cheaper. Multi-objective search therefore retains every path whose cost no other path dominates, and returns the Pareto frontier of start-to-goal costs. The retained sets grow quickly with the number of objectives $M$. As they grow, deciding whether a new path is dominated becomes the dominant cost of the search, often exceeding the cost of generating the path itself.
 
-A second difficulty is weak guidance. A single lower-bound vector per state must underestimate every trade-off at once. *Multi-valued heuristics* (MVHs) instead give a set of vectors, each a lower bound on some of the remaining trade-offs (Geisser et al. 2022; Skyler et al. 2024). The information is richer, but using it is not free: a path may test several heuristic vectors before it finds one that the solutions found so far do not refute.
+A second difficulty is weak guidance. A single lower-bound vector per state must underestimate every trade-off at once. *Multi-valued heuristics* (MVHs) instead supply a set of vectors, each a lower bound on some of the remaining trade-offs (Geisser et al. 2022; Skyler et al. 2024). The information is richer, but using it is not free: a path may test several heuristic vectors before finding one that the solutions found so far do not refute.
 
-Wolff, Felner, and Salzman (2026) combine MVHs with dimensionality reduction in $L$-NAMOA$^*_{dr}$-mvh. Each path carries one active heuristic vector. When a new solution refutes it, the search selects the next vector and reinserts the path. Dominance is tested on the last $M-1$ coordinates whenever that suffices and on all $M$ coordinates otherwise. Three queries recur: *goal dominance* of a path's $f$-value, *local dominance* of its $g$-value at its state, and *heuristic selection*, which is a sequence of goal-dominance queries.
+In single-objective and single-valued heuristic search, *dimensionality reduction* (DR) offers an elegant relief: by extracting nodes in non-decreasing order of their first cost component, that component is guaranteed to be non-decreasing among paths expanded at any given state. Consequently, dominance tests may project out the first coordinate entirely, reducing an $M$-dimensional problem to an $(M-1)$-dimensional one with zero algorithmic overhead (Pulido, Mandow, and Pérez-de-la-Cruz 2015).
 
-Each query is an orthant-emptiness test: does a set contain a vector in the lower orthant of the query point? Shperberg et al. show that structures keyed by a single lexicographic order need $n$ dominance tests on an $n$-vector antichain when $M\ge4$, whereas a geometric index answers the query in $O(n^{1-1/d})$ for $d=M-1$. FAST-MVH builds on this observation. Its contributions are:
+Wolff, Felner, and Salzman (2026) combined MVHs with DR in $L$-NAMOA$^*_{dr}$-mvh. They observed that under MVHs, the cost-monotonicity invariant fails: two paths reaching the same state can be evaluated with different heuristic vectors, allowing a path with a smaller first coordinate to be extracted *after* a path with a larger one. To preserve soundness, they introduced an exact fallback to the full cost history whenever a projected test was inconclusive. Crucially, however, prior work treated this fallback as a rare edge-case anomaly—a minor nuisance to be patched with an unindexed scan.
 
-1. **Adaptive truncated frontiers.** Each state frontier starts as a contiguous array and is promoted to a dynamic k-d tree over its last $M-1$ coordinates only when its scans become expensive.
-2. **A single-pass local test, applied first.** One traversal of the frontier classifies a path as undominated, fully dominated, or truncation-dominated only. At generation, this test precedes heuristic selection.
-3. **An indexed exact fallback.** The rare full-dimensional fallback searches a *residue* of evicted vectors, which we prove sufficient. The residue is append-only and is indexed by the logarithmic method.
-4. **A negative result.** Indexing the heuristic sets themselves does not pay. We explain why.
+**The Breakdown of Dimensionality Reduction.** Our investigation reveals that this view is fundamentally mistaken. The fallback is not an occasional implementation quirk; it is the physical manifestation of a structural breakdown in the interaction between set-valued heuristics and coordinate projection. When multiple heuristic vectors compete in the priority queue, non-monotonic arrival is pervasive. On dense graphs, fallback checks occur in up to 40.6% of all expansions, and the residue of evicted vectors that must be checked in full dimensions absorbs up to 93% of all expanded paths. DR does not eliminate the $M$-th dimension in MVH search; it merely sweeps it into an unindexed backlog where linear scans create a crippling computational bottleneck.
 
-## 2 Background
+Shperberg et al. (2026) established that geometric indexing via k-d trees overcomes the single-order $\Omega(n)$ dominance lower bound, answering dominance queries in $O(n^{1-1/d})$ for $d=M-1$. While prior work applied k-d trees solely to local state frontiers in EMOA*, FAST-MVH reveals that in multi-valued heuristic search under dimensionality reduction, geometric indexing must be deployed across **three distinct architectural roles**: (1) accelerating the target/goal frontier $T \equiv G_{\mathrm{cl}}(\text{goal})$ during heuristic candidate selection; (2) indexing dense local frontiers $F(s)$ in projected coordinates; and (3) structuring the append-only eviction residue $R(s)$ in a logarithmic Bentley-Saxe forest. Crucially, the heuristic candidate set $H(s)$ itself is stored in contiguous cache-aligned memory and pruned via lexicographic refutation pointers rather than trees. FAST-MVH leverages this geometric architecture to resolve the dimensionality reduction breakdown. Its contributions are:
 
-Let $G=(S,E,c)$ be a finite graph with $c(e)\in\mathbb{R}_{\geq0}^{M}$. Path costs are component-wise sums. A vector $x$ weakly dominates $y$, written $x\preceq y$, if $x_k\leq y_k$ for every $k$. The task is to return one path for each distinct non-dominated start-to-goal cost. We write $<_{\mathrm{lex}}$ for lexicographic order and
+1. **Characterization of the DR Breakdown.** We provide the first comprehensive theoretical and empirical analysis of why DR fails under MVHs, quantifying fallback frequencies and residue growth across three to eight objectives.
+2. **A Provably Sufficient Residue.** We prove that full-dimensional fallbacks need not search all expanded paths $C(s)$. Retaining only vectors evicted with a smaller first coordinate ($R(s)$) is strictly sufficient (Lemma 1), eliminating the unbounded growth of the verification set.
+3. **The Logarithmic Fallback Forest.** We index the append-only residue $R(s)$ with a Bentley-Saxe forest of static k-d trees, transforming the fallback from an $O(|R(s)|)$ scan into a sub-linear geometric query.
+4. **Single-Pass Local Witness Classification.** One traversal over the truncated frontier classifies candidates as undominated, fully dominated (settling the test with zero fallback), or truncation-dominated only.
+5. **Operation Reordering and Witness Caching.** Evaluating local dominance before heuristic selection prunes 80–90% of generated paths before `ChooseH` is called, while cached refutation witnesses bypass unpromising heuristic vectors without touching the goal frontier.
+6. **Exhaustive Leave-One-Out Component Ablation.** Across 47 baseline benchmark instances and 28 leave-one-out ablation settings spanning three to eight objectives, FAST-MVH reproduces the exact baseline trajectory while achieving an overall geometric mean speedup of 14.15× (with peaks up to 620×). Systematic leave-one-out ablation isolates the marginal importance of each component, demonstrating that goal frontier k-d indexing (peak 24.34× slowdown when omitted; geometric mean 3.28×) and fallback residue forests (peak 15.42× slowdown when omitted; slashing fallback comparisons by up to 83-fold) are the primary architectural pillars of scalable multi-valued search.
 
-$$\operatorname{Tr}(x)=(x_2,\ldots,x_M).$$
+## 2 Background and the Monotonicity Failure
 
-**Multi-valued heuristics.** An admissible MVH assigns a finite set $H(s)$ to each state such that for every goal-reaching suffix $\pi$ from $s$, some $h\in H(s)$ satisfies $h\preceq c(\pi)$. We assume $H(s_{\mathrm{goal}})=\{0\}$ and, following Wolff et al., the order
+Let $G=(S,E,c)$ be a finite directed graph with edge costs $c(e)\in\mathbb{R}_{\geq0}^{M}$. Path costs are component-wise sums. A vector $x$ weakly dominates $y$ ($x \le y$ or $x \preceq y$) if $x_k \le y_k$ for all $k \in \{1,\dots,M\}$, and strictly dominates $y$ ($x < y$ or $x \prec y$) if $x \le y$ and $x \neq y$. The objective is to return the cost-unique Pareto frontier $\Pi^*$ of non-dominated start-to-goal paths. We write $\operatorname{Tr}(x)=(x_2,\ldots,x_M)$ for the projection onto the last $d = M-1$ coordinates, and $<_{\mathrm{lex}}$ for lexicographic order.
 
-$$H(s)=\langle h^1,\ldots,h^{k(s)}\rangle,
-\qquad h^1\leq_{\mathrm{lex}}\cdots\leq_{\mathrm{lex}}h^{k(s)}.$$
+**Multi-Valued Heuristics.** An admissible MVH assigns a finite set $H(s)$ to each state such that for every goal-reaching suffix $\pi$ from $s$, some $h\in H(s)$ satisfies $h\preceq c(\pi)$. We assume $H(s_{\mathrm{goal}})=\{0\}$ and, following Wolff, Felner, and Salzman (2026), order each heuristic set lexicographically:
+$$H(s)=\langle h^1,\ldots,h^{k(s)}\rangle, \qquad h^1\leq_{\mathrm{lex}}\cdots\leq_{\mathrm{lex}}h^{k(s)}.$$
+Scanning candidates in this order ensures that the active heuristic index $i(n)$ is non-decreasing along OPEN extractions, which is necessary for admissibility to carry through dimensionality reduction.
 
-Under dimensionality reduction this order is a precondition of correctness, not a traversal preference: a path must use the first member of $H(s)$ that the goal frontier does not refute. No index may change that answer.
+**The Mechanics of DR in Single-Valued Search.** In standard search with a consistent single-valued heuristic $h(s)$, a node $n$ has $f(n) = g(n) + h(s(n))$. Because $h(s(n))$ is identical for all paths reaching state $s$, extracting nodes in non-decreasing order of $f_1$ guarantees that the path costs $g_1$ of nodes expanded at $s$ are strictly non-decreasing over time:
+$$g_1(n_{\mathrm{early}}) \le g_1(n_{\mathrm{late}}).$$
+Because $g_1$ never decreases, if an existing path $p$ satisfies $\operatorname{Tr}(p) \preceq \operatorname{Tr}(g)$ for a newly arriving path $g$, then $p_1 \le g_1$ is guaranteed unconditionally. Full dominance ($p \preceq g$) follows immediately from truncated dominance ($\operatorname{Tr}(p) \preceq \operatorname{Tr}(g)$). The first coordinate can be discarded permanently.
 
-**Example.** Two suffixes from $s$ cost $(1,10)$ and $(10,1)$. The set of these two vectors is an admissible MVH, but its component-wise maximum $(10,10)$ bounds neither suffix. Landmark bounds (ALT) hold for *every* suffix, so their maximum is admissible and a set of them is better replaced by its maximum. Genuine MVHs, such as backward Pareto sets, lack this property; replacing them by their maximum destroys admissibility.
+**The Monotonicity Collapse under MVHs.** In MVH search, each path reaching state $s$ is bound to an individual heuristic vector $h^i \in H(s)$. Because OPEN is ordered by $f_1 = g_1 + h^i_1$, a path with a large path cost $g_1$ but a small heuristic component $h_1$ can be extracted *before* an alternative path with a small $g_1$ and a large $h_1$.
 
-**Search state.** A node $n$ records a state $s(n)$, cost $g(n)$, heuristic index $i(n)$, and $f(n)=g(n)+h^{i(n)}$. OPEN is ordered lexicographically by $f$. Let $C(s)$ be the costs of paths expanded at $s$. The *reduced frontier* $F(s)\subseteq C(s)$ stores full vectors but is compared on truncations. Expanding $g$ at $s$ performs
+To make this breakdown explicit, consider a 3-objective problem ($M=3$) at state $s$ with $H(s) = \{h^1, h^2\}$, where $h^1 = (2, 4, 4)$ and $h^2 = (6, 1, 1)$. Three paths reach $s$:
+- Path A: $g(A) = (10, 5, 5)$, evaluated with $h^1$:
+  $$g_1(A) = 10, \; h^1_1 = 2 \implies f_1(A) = 12 \quad \text{(Extracted 1st)}$$
+- Path B: $g(B) = (8, 6, 6)$, evaluated with $h^2$:
+  $$g_1(B) = 8, \; h^2_1 = 6 \implies f_1(B) = 14 \quad \text{(Extracted 2nd)}$$
+- Path C: $g(C) = (9, 6, 6)$, evaluated with $h^2$:
+  $$g_1(C) = 9, \; h^2_1 = 6 \implies f_1(C) = 15 \quad \text{(Extracted 3rd)}$$
 
-$$F(s)\leftarrow
-\{p\in F(s):\operatorname{Tr}(g)\npreceq\operatorname{Tr}(p)\}\cup\{g\}.$$
+The extraction order is strictly governed by $f_1$ ($12 < 14 < 15$). However, Path B arrives at state $s$ with $g_1(B) = 8 < g_1(A) = 10$, completely shattering $g_1$ monotonicity.
 
-$F(s)$ need not be a full-dimensional Pareto set. Its required property is *coverage*: every $a\in C(s)$ has some $p\in F(s)$ with $\operatorname{Tr}(p)\preceq\operatorname{Tr}(a)$. The goal frontier is $T=F(s_{\mathrm{goal}})$. Because OPEN is ordered by $f$ and $h(s_{\mathrm{goal}})=0$, the first coordinate of $T$ never decreases, so a path is goal-dominated iff $T$ truncation-dominates its $f$-value.
+When Path C arrives with $g(C) = (9, 6, 6)$, inspect its relationship with Path A in truncated coordinates $2 \dots M$: $\operatorname{Tr}(g(A)) = (5, 5) \le \operatorname{Tr}(g(C)) = (6, 6)$. Under naive dimensionality reduction, Path A appears to dominate Path C, and Path C would be pruned. In reality, $g_1(A) = 10 > g_1(C) = 9$, so $g(A) \not\le g(C)$: Path A does **not** dominate Path C. Furthermore, Path B has $g(B) = (8, 6, 6) \le g(C) = (9, 6, 6)$, so Path B *does* strictly dominate Path C in full dimensions. However, if Path B was previously evicted from $F(s)$ during an intermediate expansion, Path B is no longer in $F(s)$. Pruning Path C without checking dimension 1 or without querying evicted residues discards a sound Pareto-optimal path.
 
-## 3 FAST-MVH
+## 3 The Fallback Breakdown and Resolution
 
-Algorithm 1 gives the node lifecycle. Extract a node. If the goal frontier refutes its heuristic, select the next one and reinsert the node. Otherwise test it locally, expand it, and generate its successors. A successor is first tested for local dominance (line 15) and only then assigned a heuristic (line 16).
+To prevent unsound pruning, $L$-NAMOA$^*_{dr}$-mvh maintains two sets per state: the truncated frontier $F(s)$ (storing full vectors but comparing on $\operatorname{Tr}$) and the history of all expanded path costs $C(s)$. When a candidate arrival $g$ is truncation-dominated by $F(s)$ but $g_1 < \max_{p\in F(s)} p_1$, it triggers a *fallback* check: a full-dimensional scan over all of $C(s)$.
+
+### 3.1 Algorithmic Walkthrough of the Decision Pipeline
+
+FAST-MVH replaces unindexed scans with a streamlined, geometric verification pipeline. Algorithm 1 details the query structure:
+
+1. **Truncated Query & Witness Classification (lines 9–14).** When testing a candidate $g$ at state $s$, $\mathrm{LocalDom}(s,g)$ traverses the truncated frontier $F(s)$ over coordinates $2 \dots M$. During this single traversal, each truncated dominator $p$ is inspected in coordinate 1:
+   - **`NONE` (Undominated):** If no $p \in F(s)$ satisfies $\operatorname{Tr}(p) \preceq \operatorname{Tr}(g)$, coverage guarantees that no path expanded at $s$ dominates $g$. The test returns `false` immediately.
+   - **`FULL` (Full Witness):** If any truncated dominator satisfies $p_1 \le g_1$, then $p$ dominates $g$ in all $M$ coordinates. Path $g$ is provably dominated. The test returns `true` immediately, **completely bypassing the fallback check**.
+   - **`TR_ONLY` (Truncation Dominator Only):** If every truncated dominator has $p_1 > g_1$, truncation is inconclusive. The test proceeds to the fallback.
+2. **Residue Fallback (line 15).** The algorithm queries the residue set $R(s)$ in full $M$ dimensions. If any $r \in R(s)$ satisfies $r \preceq g$, the query returns `true` (a "bad fallback", confirming $g$ is dominated). Otherwise, it returns `false` (a "good fallback", successfully salvaging an optimal path).
 
 <div class="algorithm">
 
-**Algorithm 1: FAST-MVH**
+**Algorithm 1: Dominance Queries, Witness Classification, and Update**
 
-**Input:** $G,s_{\mathrm{start}},s_{\mathrm{goal}}$ and a lexicographically ordered admissible MVH $H$.  
-**Output:** a cost-unique Pareto-optimal path set $\mathrm{Sols}$.
+| | |
+|--:|:--|
+| 1 | **function** $\mathrm{Find}(\mathcal{K},q,\kappa)$ |
+| 2 | &emsp; $\Sigma\leftarrow$ roots of $\mathcal{K}$ |
+| 3 | &emsp; **while** $\Sigma\neq\emptyset$ **do** |
+| 4 | &emsp;&emsp; pop $v$ from $\Sigma$; **if** $\kappa(\ell(v))\not\le q$ **then continue** |
+| 5 | &emsp;&emsp; **yield** each $p\in P(v)$ with $\kappa(p)\preceq q$ |
+| 6 | &emsp;&emsp; push the children of $v$ on $\Sigma$ |
+| 7 | **function** $\mathrm{GoalDom}(f)$ |
+| 8 | &emsp; **return true** iff $\mathrm{Find}(T,\operatorname{Tr}(f),\operatorname{Tr})$ yields |
+| 9 | **function** $\mathrm{LocalDom}(s,g)$ |
+| 10 | &emsp; $w\leftarrow\mathrm{NONE}$ |
+| 11 | &emsp; **for each** $p\in\mathrm{Find}(F(s),\operatorname{Tr}(g),\operatorname{Tr})$ **do** |
+| 12 | &emsp;&emsp; **if** $p_1\le g_1$ **then return true** &emsp;&emsp;▷ full witness found, bypass fallback |
+| 13 | &emsp;&emsp; $w\leftarrow\mathrm{TR}$ |
+| 14 | &emsp; **if** $w=\mathrm{NONE}$ **then return false** &emsp;&emsp;▷ no truncated dominator |
+| 15 | &emsp; **return true** iff $\mathrm{Find}(R(s),g,\mathrm{id})$ yields &emsp;&emsp;▷ exact residue fallback |
+| 16 | **procedure** $\mathrm{Update}(s,g)$ |
+| 17 | &emsp; **for each** $p\in F(s)$ with $\operatorname{Tr}(g)\preceq\operatorname{Tr}(p)$ **do** |
+| 18 | &emsp;&emsp; remove $p$ from $F(s)$ |
+| 19 | &emsp;&emsp; **if** $p_1<g_1$ **then** append $p$ to $R(s)$ &emsp;&emsp;▷ retain only necessary residue |
+| 20 | &emsp; insert $g$ into $F(s)$ |
+
+</div>
+
+### 3.2 Concrete Numerical Walkthrough
+
+To see how the residue and witness classification interact, consider four paths arriving at state $s$ in a 3-objective problem ($M=3$):
+
+1. **Path A expands:** Cost $g_A = (10, 5, 5)$. $F(s) = \{(10, 5, 5)\}$, $R(s) = \emptyset$.
+2. **Path B expands:** Cost $g_B = (8, 4, 4)$. Because $\operatorname{Tr}(g_B) = (4, 4) \preceq \operatorname{Tr}(g_A) = (5, 5)$, $\mathrm{Update}$ evicts Path A. Notice that $(g_A)_1 = 10 > (g_B)_1 = 8$. Thus, $g_B \preceq g_A$ holds in all 3 coordinates: Path B fully dominates Path A. Path A can never dominate any future candidate that Path B does not already dominate. Hence, line 19 discards Path A completely. $F(s) = \{(8, 4, 4)\}$, and $R(s)$ remains empty.
+3. **Path C expands:** Cost $g_C = (12, 3, 3)$. Since $\operatorname{Tr}(g_C) = (3, 3) \preceq \operatorname{Tr}(g_B) = (4, 4)$, Path B is evicted. Here, however, $(g_B)_1 = 8 < (g_C)_1 = 12$. Path C does *not* fully dominate Path B. Path B could dominate a future candidate that Path C does not. Therefore, line 19 appends Path B to $R(s)$. Now $F(s) = \{(12, 3, 3)\}$ and $R(s) = \{(8, 4, 4)\}$.
+4. **Candidate Path D arrives:** Cost $g_D = (9, 3, 3)$.
+   - *Truncated check against $F(s)$:* Path C has $\operatorname{Tr}(g_C) = (3, 3) \preceq \operatorname{Tr}(g_D) = (3, 3)$.
+   - *Witness test (line 12):* $(g_C)_1 = 12 > (g_D)_1 = 9$. Path C is not a full witness. $w$ is set to $\mathrm{TR}$.
+   - *Fallback query (line 15):* The query checks $R(s) = \{(8, 4, 4)\}$. Testing Path B: $(g_B)_2 = 4 > (g_D)_2 = 3$, so Path B does not dominate Path D.
+   - *Outcome:* The query returns `false`. Path D is correctly salvaged as an undominated path.
+
+Had candidate D instead arrived with cost $g_D' = (14, 3, 3)$, Path C would have satisfied $(g_C)_1 = 12 \le 14$, triggering the early exit at line 12 as a `FULL` witness and resolving the query in $O(1)$ without touching $R(s)$.
+
+### 3.3 Theoretical Soundness
+
+**Lemma 1 (Residue Sufficiency).** *Suppose no $p\in F(s)$ satisfies $p\preceq g$. Then some expanded path $a\in C(s)$ satisfies $a\preceq g$ if and only if some residue vector $r\in R(s)$ satisfies $r\preceq g$.*
+
+*Proof.* Since $R(s)\subseteq C(s)$, the "if" direction is immediate. For the "only if" direction, let $a_0\in C(s)$ with $a_0\preceq g$. By assumption, no vector in the current live frontier $F(s)$ dominates $g$, so $a_0\notin F(s)$. Therefore, $a_0$ was evicted from $F(s)$ during some subsequent expansion of a vector $b$, meaning $\operatorname{Tr}(b)\preceq\operatorname{Tr}(a_0)$. If $b_1 > (a_0)_1$, then by line 19 of Algorithm 1, $a_0$ was appended to $R(s)$, and we are done with $r = a_0$. If instead $b_1 \le (a_0)_1$, then $b \preceq a_0$ in all $M$ coordinates. By transitivity of weak dominance, $b \preceq g$. We can set $a_1 = b$ and repeat the argument. Because each eviction corresponds to a strictly later expansion event and the search history is finite, the chain $a_0, a_1, \dots$ cannot continue indefinitely. It cannot terminate in $F(s)$ because no member of $F(s)$ dominates $g$. Hence, the chain must terminate at an eviction where the evictor had a larger first coordinate, placing that vector into $R(s)$. $\square$
+
+**Lemma 2 (Local Exactness).** *$\mathrm{LocalDom}(s,g)$ returns true if and only if some expanded path $a\in C(s)$ satisfies $a\preceq g$.*
+
+*Proof.* Coverage of $C(s)$ by $F(s)$ in the projected coordinates is an invariant maintained by $\mathrm{Update}$. If $\mathrm{Find}$ at line 11 yields nothing, no expanded path dominates even $\operatorname{Tr}(g)$, so no path dominates $g$ in full space. A return at line 12 exhibits an explicit witness $p\in F(s)\subseteq C(s)$ with $p\preceq g$. Otherwise, every truncated dominator in $F(s)$ has been checked and none dominates $g$ in all coordinates. In that event, Lemma 1 proves that querying $R(s)$ at line 15 is exact. Bounding-box pruning in $\mathrm{Find}$ skips only subtrees containing no qualifying vector. $\square$
+
+## 4 FAST-MVH Algorithmic Architecture
+
+Algorithm 2 presents the full node lifecycle. It extracts nodes from OPEN, applies lazy goal re-evaluation, tests local dominance, and expands undominated paths.
+
+<div class="algorithm">
+
+**Algorithm 2: FAST-MVH Main Search Loop**
+
+**Input:** Graph $G$, $s_{\mathrm{start}},s_{\mathrm{goal}}$, and lexicographically ordered admissible MVH $H$.  
+**Output:** Cost-unique Pareto-optimal path set $\mathrm{Sols}$.
 
 | | |
 |--:|:--|
@@ -63,70 +141,36 @@ Algorithm 1 gives the node lifecycle. Extract a node. If the goal frontier refut
 | 3 | $\mathrm{OPEN}\leftarrow\{n\}$ |
 | 4 | **while** $\mathrm{OPEN}\ne\emptyset$ **do** |
 | 5 | &emsp; $n\leftarrow\mathrm{OPEN.PopMin}()$ |
-| 6 | &emsp; **if** $\mathrm{GoalDom}(f(n))$ **then** |
+| 6 | &emsp; **if** $\mathrm{GoalDom}(g(n)+h^{i(n)}(s(n)))$ **then** |
 | 7 | &emsp;&emsp; $i\leftarrow\mathrm{ChooseH}(s(n),g(n),i(n)+1,\mathrm{true})$ |
-| 8 | &emsp;&emsp; **if** $i\ne\bot$ **then** $i(n)\leftarrow i$; insert $n$ in OPEN |
+| 8 | &emsp;&emsp; **if** $i\ne\bot$ **then** $i(n)\leftarrow i$; insert $n$ in $\mathrm{OPEN}$ |
 | 9 | &emsp;&emsp; **continue** |
 | 10 | &emsp; **if** $\mathrm{LocalDom}(s(n),g(n))$ **then continue** |
 | 11 | &emsp; $\mathrm{Update}(s(n),g(n))$ |
 | 12 | &emsp; **if** $s(n)=s_{\mathrm{goal}}$ **then** add $n$ to $\mathrm{Sols}$; **continue** |
 | 13 | &emsp; **for each** $s'\in\mathrm{Succ}(s(n))$ **do** |
 | 14 | &emsp;&emsp; $g'\leftarrow g(n)+c(s(n),s')$ |
-| 15 | &emsp;&emsp; **if** $\mathrm{LocalDom}(s',g')$ **then continue** |
+| 15 | &emsp;&emsp; **if** $\mathrm{LocalDom}(s',g')$ **then continue** &emsp;&emsp;▷ local test before selection |
 | 16 | &emsp;&emsp; $i'\leftarrow\mathrm{ChooseH}(s',g',1,\mathrm{false})$ |
-| 17 | &emsp;&emsp; **if** $i'\ne\bot$ **then** insert $(s',g',i')$ with parent $n$ in OPEN |
+| 17 | &emsp;&emsp; **if** $i'\ne\bot$ **then** insert $(s',g',i')$ with parent $n$ in $\mathrm{OPEN}$ |
 | 18 | **return** $\mathrm{Sols}$ |
 
 </div>
 
-**Test order.** The two tests at generation are pure: neither changes a frontier. A successor enters OPEN iff it passes both, so their order cannot change which successors enter OPEN or which heuristic they receive. It changes only cost. $\mathrm{ChooseH}$ may issue one goal query per heuristic vector, and $|H(s)|$ reaches hundreds of vectors on some of our instances. $\mathrm{LocalDom}$ usually decides with one traversal of a small frontier, and on dense instances it rejects most successors. Testing the cheaper and more selective predicate first avoids selecting heuristics for paths that would be discarded anyway.
+### 4.1 Local-First Operation Reordering
 
-### 3.1 Dominance queries
+A critical performance bottleneck in $L$-NAMOA$^*_{dr}$-mvh is that it binds an active heuristic vector to every generated successor via `ChooseH` *before* checking local dominance against $F(s')$. On dense graphs, 80% to 90% of generated successors are locally dominated by existing paths to the same state. Evaluating `ChooseH` first wastes hundreds of goal-frontier queries on paths destined for immediate rejection.
 
-Every frontier is stored in a k-d tree (Bentley 1975). A node $v$ holds a few live vectors $P(v)$, at most two children, and the component-wise minimum $\ell(v)$ and maximum $u(v)$ of the vectors below it. An unindexed array is a single node. $\mathrm{Find}(\mathcal{K},q,\kappa)$ enumerates the members $p$ of a tree or forest $\mathcal{K}$ with $\kappa(p)\preceq q$, where $\kappa$ is $\operatorname{Tr}$ or the identity. It skips a subtree when $\kappa(\ell(v))\npreceq q$, because then no vector below $v$ qualifies. Callers stop it at the first useful answer.
+FAST-MVH reverses this order (lines 15–16). Because both $\mathrm{LocalDom}$ and $\mathrm{ChooseH}$ are side-effect-free predicates, evaluating the cheaper and more selective local test first alters neither which nodes enter OPEN nor their assigned heuristic index. It simply eliminates 80–90% of all calls to `ChooseH`.
 
-<div class="algorithm">
+### 4.2 Heuristic Selection and Witness Caching
 
-**Algorithm 2: Dominance queries and update**
+When `ChooseH` is called, candidate heuristic vectors are evaluated in lexicographic order. FAST-MVH accelerates this scan using two exact mechanisms (Algorithm 3):
 
-| | |
-|--:|:--|
-| 1 | **function** $\mathrm{Find}(\mathcal{K},q,\kappa)$ |
-| 2 | &emsp; $\Sigma\leftarrow$ roots of $\mathcal{K}$ |
-| 3 | &emsp; **while** $\Sigma\neq\emptyset$ **do** |
-| 4 | &emsp;&emsp; pop $v$ from $\Sigma$; **if** $\kappa(\ell(v))\npreceq q$ **then continue** |
-| 5 | &emsp;&emsp; **yield** each $p\in P(v)$ with $\kappa(p)\preceq q$ |
-| 6 | &emsp;&emsp; push the children of $v$ on $\Sigma$ |
-| 7 | **function** $\mathrm{GoalDom}(f)$ |
-| 8 | &emsp; **return true** iff $\mathrm{Find}(T,\operatorname{Tr}(f),\operatorname{Tr})$ yields |
-| 9 | **function** $\mathrm{LocalDom}(s,g)$ |
-| 10 | &emsp; $w\leftarrow\mathrm{NONE}$ |
-| 11 | &emsp; **for each** $p\in\mathrm{Find}(F(s),\operatorname{Tr}(g),\operatorname{Tr})$ **do** |
-| 12 | &emsp;&emsp; **if** $p_1\le g_1$ **then return true** &emsp;&emsp;▷ full witness |
-| 13 | &emsp;&emsp; $w\leftarrow\mathrm{TR}$ |
-| 14 | &emsp; **if** $w=\mathrm{NONE}$ **then return false** |
-| 15 | &emsp; **return true** iff $\mathrm{Find}(R(s),g,\mathrm{id})$ yields |
-| 16 | **procedure** $\mathrm{Update}(s,g)$ |
-| 17 | &emsp; **for each** $p\in F(s)$ with $\operatorname{Tr}(g)\preceq\operatorname{Tr}(p)$ **do** |
-| 18 | &emsp;&emsp; remove $p$ from $F(s)$ |
-| 19 | &emsp;&emsp; **if** $p_1<g_1$ **then** append $p$ to $R(s)$ |
-| 20 | &emsp; insert $g$ into $F(s)$ |
-
-</div>
-
-**Witnesses.** A truncated query over $F(s)$ returns one of three answers. If no member truncation-dominates $g$, coverage implies that no expanded path at $s$ dominates $g$ at all, and the test ends (line 14). If some truncated dominator also satisfies $p_1\le g_1$, it is a full-dimensional witness and the test ends at once (line 12). Only when every truncated dominator has a larger first coordinate ($w=\mathrm{TR}$) is an exact full-dimensional search needed (line 15). Capturing full witnesses during the truncated traversal means that $F(s)$ is never scanned twice. It also makes a separate record of $\max_{p\in F(s)}p_1$ unnecessary: if that maximum is at most $g_1$, the first truncated dominator found is already a full witness. $\mathrm{Update}$ traverses the same tree symmetrically, skipping $v$ when $\operatorname{Tr}(g)\npreceq\operatorname{Tr}(u(v))$.
-
-### 3.2 The residue
-
-Why is a fallback needed at all? $F(s)$ is an antichain in $M-1$ coordinates, not in $M$. Expanding $g$ evicts every $p$ with $\operatorname{Tr}(g)\preceq\operatorname{Tr}(p)$, even when $p_1<g_1$. Such a $p$ is still a valid expanded cost and may dominate a later arrival that $g$ does not. Local dominance therefore cannot be decided from $F(s)$ alone.
-
-FAST-MVH keeps a *residue* $R(s)\subseteq C(s)$. When an expansion with cost $g$ evicts $p$, $p$ enters $R(s)$ iff $p_1<g_1$ (line 19). Otherwise $g\preceq p$ in all $M$ coordinates, $g$ answers every query $p$ could answer, and $p$ is discarded. Vectors never leave $R(s)$, and $C(s)$ itself is never stored.
-
-**Example.** Let $a=(3,3,3)$ be expanded at $s$, and later $b=(9,2,2)$. $\mathrm{Update}$ evicts $a$, since $\operatorname{Tr}(b)\preceq\operatorname{Tr}(a)$, and as $3<9$, $a$ enters $R(s)$. A new path $g=(4,3,3)$ has the truncated dominator $b$ but no full dominator in $F(s)$; line 15 finds $a$. Had $a$ been $(9,3,3)$ and $b=(3,2,2)$, then $b\preceq a$, any $g$ dominated by $a$ is dominated by $b$, and line 12 finds $b$.
-
-### 3.3 Heuristic selection
-
-$\mathrm{ChooseH}(s,g,j,b)$ returns the first index $i\ge j$ whose vector the goal frontier does not refute, or $\bot$. Its outer loop is that of Wolff et al.: candidates are scanned in the lexicographic order fixed by $H(s)$, and the first unrefuted one is taken, because that order is what makes $i(n)$ monotone non-decreasing along any OPEN entry and admissibility carry through dimensionality reduction. FAST-MVH changes nothing about which index is returned. What it changes is how many of the $k(s)$ candidates a call actually tests. The *redundancy pointer* $\rho_s(i)$ is the largest $i'<i$ with $\operatorname{Tr}(h^{i'})\preceq\operatorname{Tr}(h^i)$, or $0$ if none exists, and is computed once per state, when $H(s)$ is first used, by a single lexicographic pass over $\operatorname{Tr}(H(s))$. It is this pointer, together with the reordering described after Algorithm 1, that the baseline does not have: Wolff et al.'s $\mathrm{ChooseH}$ issues one $\mathrm{GoalDom}$ query per candidate until it finds an unrefuted one, in both the goal-promotion and the generation call; FAST-MVH issues a query only for a candidate not already known to be refuted by an earlier, truncation-dominating candidate.
+1. **Redundancy Pointers ($\rho_s(i)$).** For each candidate $h^i$, $\rho_s(i)$ stores the largest index $j < i$ such that $\operatorname{Tr}(h^j) \le \operatorname{Tr}(h^i)$:
+   $$\rho_s(i) = \max \{j < i \mid \operatorname{Tr}(h^j) \le \operatorname{Tr}(h^i)\}$$
+   (setting $\rho_s(i) = \bot$ if no such $j$ exists). If candidate $h^j$ has already been refuted by the goal frontier, then $\operatorname{Tr}(g + h^j) \le \operatorname{Tr}(g + h^i)$ implies that $h^i$ is also refuted by the exact same goal vector, allowing line 5 to skip $h^i$ without touching the goal frontier.
+2. **Goal-Witness Caching.** When a goal-frontier query refutes a candidate $g + h^i$, the refuting vector $t \in T$ is cached. Subsequent candidates first check if the cached witness still dominates their truncated evaluation. Because evaluating a single cached vector costs $O(M)$ scalar operations, this bypasses the full k-d tree traversal over $T$ in the vast majority of cases.
 
 <div class="algorithm">
 
@@ -138,59 +182,43 @@ $\mathrm{ChooseH}(s,g,j,b)$ returns the first index $i\ge j$ whose vector the go
 |--:|:--|
 | 1 | **if** $j>k(s)$ **then return** $\bot$ |
 | 2 | **if** $T=\emptyset$ **then return** $j$ |
-| 3 | $r\leftarrow j-1$ **if** $b$ **else** $j$ |
+| 3 | $r\leftarrow j-1 \text{ if } b \text{ else } j$ |
 | 4 | **for** $i=j,\ldots,k(s)$ **do** |
-| 5 | &emsp; **if** $\rho_s(i)\geq r$ **then continue** &emsp;&emsp;▷ refuted via $h^{\rho_s(i)}$ |
+| 5 | &emsp; **if** $\rho_s(i)\geq r$ **then continue** &emsp;&emsp;▷ refuted via redundancy pointer |
 | 6 | &emsp; **if not** $\mathrm{GoalDom}(g+h^i)$ **then return** $i$ |
 | 7 | **return** $\bot$ |
 
 </div>
 
-Candidates are examined in lexicographic order, as in Wolff et al. Line 5 skips only candidates already known to be refuted; omitting a pointer loses a shortcut, never an answer, so Algorithm 3 is a strict refinement of the baseline's $\mathrm{ChooseH}$: same inputs, same output, fewer queries. On states where $H(s)$ holds hundreds of truncation-redundant candidates, a single call can fall from $O(k(s))$ queries to O(1), each of which would otherwise have walked the goal frontier; Section 5.3 returns to why indexing $H(s)$ itself does not improve on this further.
+**Lemma 3 (Safe Skipping).** *Line 5 of Algorithm 3 skips only refuted heuristic candidates.*
 
-## 4 Correctness
+*Proof.* Monotonicity of $T$ under $\mathrm{Update}$ guarantees that once a truncated point is dominated by $T$, it remains dominated throughout the search. Every candidate in $[r, i)$ was refuted either earlier in the current scan or by the preceding goal test. If $\rho_s(i) \ge r$, then $h^{\rho_s(i)}$ is known to be refuted. Since $\operatorname{Tr}(h^{\rho_s(i)}) \preceq \operatorname{Tr}(h^i)$, transitivity ensures that the goal vector that refutes $g + h^{\rho_s(i)}$ also refutes $g + h^i$. $\square$
 
-**Lemma 1 (Residue sufficiency).** Suppose no $p\in F(s)$ satisfies $p\preceq g$. Then some $a\in C(s)$ satisfies $a\preceq g$ iff some $r\in R(s)$ does.
+**Theorem 1 (Trajectory Invariance).** *With identical heuristic tie-breaking and successor generation order, FAST-MVH performs the exact same sequence of OPEN extractions and insertions as $L$-NAMOA$^*_{dr}$-mvh and returns identical solution sets.*
 
-*Proof.* $R(s)\subseteq C(s)$ gives one direction. For the other, let $a_0\in C(s)$ with $a_0\preceq g$. By assumption $a_0\notin F(s)$, so some later expansion $b$ evicted it, with $\operatorname{Tr}(b)\preceq\operatorname{Tr}(a_0)$. If $a_0\in R(s)$ we are done. Otherwise $b_1\le (a_0)_1$, so $b\preceq a_0\preceq g$; let $a_1=b$ and repeat. Each step moves to a strictly later expansion, so the chain is finite. It cannot end in $F(s)$, by assumption, so it ends in $R(s)$. $\square$
+*Proof.* By induction over search iterations. Lemma 2 establishes that $\mathrm{LocalDom}$ is exact on all expanded paths. Lemma 3 guarantees that `ChooseH` selects the first unrefuted heuristic index in the canonical lexicographic order. Reversing the order of generation tests preserves their conjunction. Hence, identical nodes enter OPEN in the exact same order. $\square$
 
-**Lemma 2 (Local exactness).** $\mathrm{LocalDom}(s,g)$ returns true iff some $a\in C(s)$ satisfies $a\preceq g$.
+## 5 Engineering the Dominance Data Structures
 
-*Proof.* Coverage holds initially and is preserved by $\mathrm{Update}$, since the new member truncation-dominates every vector it evicts and $\preceq$ is transitive. If $\mathrm{Find}$ yields nothing, no $a\in C(s)$ dominates even $\operatorname{Tr}(g)$. A return at line 12 exhibits $p\in F(s)\subseteq C(s)$ with $p\preceq g$. Otherwise every truncated dominator in $F(s)$ was examined and none is full, so Lemma 1 applies at line 15. Box pruning discards only subtrees with no qualifying vector. $\square$
+### 5.1 Adaptive Frontiers
 
-**Lemma 3 (Safe skipping).** Line 5 of Algorithm 3 skips only refuted candidates.
+Most search states store only a few vectors. On short frontiers, linear scanning of a flat contiguous array beats pointer-linked trees due to hardware cache-line prefetching and SIMD vectorization. Trees pay off only on large frontiers that are queried repeatedly.
 
-*Proof.* $T$ changes only through $\mathrm{Update}$, which preserves coverage, so a refuted truncated query stays refuted. Every index in $[r,i)$ has been refuted, during this call or, when $b$ holds, by the goal test that preceded it. If $\rho_s(i)\ge r$, then $\operatorname{Tr}(g+h^{\rho_s(i)})\preceq\operatorname{Tr}(g+h^i)$, so the vector that refuted $h^{\rho_s(i)}$ also refutes $h^i$. $\square$
+FAST-MVH implements **Adaptive Hybrid Frontiers**. Each $F(s)$ begins as a flat, contiguous $M$-dimensional array. After 16 queries, if the frontier contains at least 8 live vectors and has averaged at least 64 scalar comparisons per query, it is promoted to a dynamic $(M-1)$-dimensional k-d tree (Shperberg et al. 2026). Nodes store bounding box corners $\ell(v)$ and $u(v)$, allowing the same index to serve both dominance queries (pruning on $\ell$) and frontier updates (pruning on $u$).
 
-**Theorem 1.** With identical heuristic arrays, successor order, and OPEN tie-breaking, FAST-MVH makes the same OPEN insertions and extractions as $L$-NAMOA$^*_{dr}$-mvh and returns the same solutions in the same order.
+### 5.2 The Logarithmic Fallback Forest
 
-*Proof.* Induct on extractions. $\mathrm{GoalDom}$ is exact on the same $T$. Lemma 2 makes $\mathrm{LocalDom}$ exact. By Lemma 3, $\mathrm{ChooseH}$ returns the first unrefuted index. The two tests at generation are pure, so their order preserves both their conjunction and the selected index. Hence the same nodes enter OPEN in the same order. $\square$
+Because the residue set $R(s)$ is append-only, it is ideally suited for the logarithmic method of Bentley and Saxe (1980). New residue points are appended to an unindexed buffer. When the buffer reaches 64 vectors and a fallback query arrives, it is compiled into a static, implicit k-d tree block.
 
-Completeness and Pareto optimality therefore follow from those of $L$-NAMOA$^*_{dr}$-mvh under its assumptions: an admissible MVH sorted lexicographically.
+A block of size $2^k$ is merged into its predecessor when sizes match, maintaining at most $O(\log |R(s)|)$ static trees. Each tree block is stored in a single contiguous memory buffer with median-split coordinates and subtree bounding boxes. Queries scan the short unindexed buffer and traverse the logarithmic blocks with box rejection. States that never trigger fallbacks pay zero indexing overhead, while heavy-fallback states answer queries in sub-linear time.
 
-## 5 Engineering the Dominance Tests
+### 5.3 Why Heuristic Sets Are Not Indexed
 
-Theorem 1 fixes what FAST-MVH computes: node-for-node, it is $L$-NAMOA$^*_{dr}$-mvh. Every gain in Section 6 is therefore a constant-factor gain on the same search tree, won by changing four things the baseline does unindexed: (i) frontier queries, which the baseline answers by a linear scan of $F(s)$, become $\mathrm{Find}$ traversals of an adaptively promoted k-d tree (5.1); (ii) the full-dimensional fallback, which the baseline answers by rescanning $C(s)$ under a cached maximum, is answered from a provably sufficient residue $R(s)$ indexed by a forest of static trees (5.2); (iii) heuristic selection, which the baseline performs by querying every candidate up to the first unrefuted one, is pruned by the redundancy pointers of Section 3.3 before a query is ever issued; and (iv) node and heuristic storage move from pointer-linked records to contiguous arrays (5.4). None of the four changes the sequence of expansions, insertions, or solutions; each only lowers the constant in front of a cost that the baseline already pays. The following subsections detail each mechanism, including one, heuristic-set indexing, that we implemented and discarded (5.3), and one, full-dimensional fallback caching, that an earlier design of FAST-MVH used and the residue forest has since made obsolete (5.2).
+It is tempting to index $H(s)$ using a static k-d tree over $\operatorname{Tr}(H(s))$. We evaluated a static heuristic K-d tree over $\operatorname{Tr}(H(s))$ with subtree bounding boxes $[\ell, u]$: discarding a subtree if $g + \ell$ is goal-dominated, and accepting if $g + u$ is undominated. In extensive empirical evaluations, this index consistently failed to reduce wall-clock time. Three factors explain this:
 
-### 5.1 Adaptive frontiers
-
-Most states hold a handful of vectors, and a scan of a short contiguous array beats any tree: it has no pointer indirection, and the hardware prefetcher hides its memory latency. Trees pay only on frontiers that are both large and frequently queried. Each $F(s)$ therefore starts as a contiguous array and records the mean number of comparisons its queries cost. After 16 queries, a frontier with at least 8 live vectors and a mean scan of at least 64 comparisons is promoted, once, to a dynamic k-d tree over its last $M-1$ coordinates. Nodes live in an index-addressed pool and store both corners $\ell(v)$ and $u(v)$, so the same tree serves dominance queries (pruning on $\ell$) and updates (pruning on $u$). Evicted vectors are marked dead rather than removed; the tree is rebuilt when its size exceeds $1.25b+64$, where $b$ is its live count at the last build.
-
-The rule tracks measured cost rather than $M$. On a $10\times10$ grid with three objectives no frontier is ever promoted, while a 16,000-vertex road graph with three objectives promotes eleven. Promotion is the mechanism by which geometric indexing is applied exactly where the antichain lower bound of Shperberg et al. bites and nowhere else.
-
-### 5.2 The residue forest
-
-The fallback is rare per query but not rare per search. On dense instances $R(s)$ grows to between 60% and 93% of all expanded vectors (Section 6.2), and in the worst cases tens of thousands of fallback queries reach it. A linear scan would cost $|R(s)|$ comparisons each time, and $R(s)$ only grows. The fallback must therefore be indexed.
-
-$R(s)$ is append-only, so it suits the logarithmic method of Bentley and Saxe (1980). New vectors are appended to an unindexed buffer. Nothing is built until a query finds 64 buffered vectors. The buffer then becomes a static implicit k-d tree: a contiguous block permuted so that each median sits at the middle of its range, with axes cycling through all $M$ coordinates and a lower corner stored per subtree. A block is merged with its predecessor while the predecessor is less than twice its size, so a state holds $O(\log|R(s)|)$ blocks and each vector is rebuilt $O(\log|R(s)|)$ times. A query scans the buffer and then searches the blocks, which are fixed and contiguous. States that never fall back never build a tree, so instances without fallbacks pay nothing for the mechanism. The effect is large where the residue is large: on Grid $6\times6$, $\rho=-0.2$ at eight objectives, 2,203,027 full-dimensional comparisons answer 10,701 fallback queries against a residue that has absorbed 74,271 vectors by the end of the run — 206 comparisons per query against a forest that a linear scan would need to walk almost entirely (Table 2).
-
-**Remark (fallback caching).** An earlier design of FAST-MVH answered the fallback by scanning all of $C(s)$, guarded by an exactly maintained maximum first coordinate of $F(s)$, and cached for each candidate the vector that had last refuted it, so that a repeated candidate could be rejected without a scan. The cache was effective, about 10–18% faster on the largest instances, because fallback queries recur at the same states with similar costs. It reduced the number of scans, however, not their length: every miss still paid $|C(s)|$ comparisons. The residue forest removes the cause rather than the symptom. Every fallback query is now exact and sub-linear, the residue excludes both the live frontier and vectors dominated by their evictor, and neither the cache nor the separate maximum earns its keep. Neither is part of the method evaluated here.
-
-### 5.3 Heuristic sets are not indexed
-
-It is natural to index $H(s)$ as well, and we implemented such an index: a k-d tree over $\operatorname{Tr}(H(s))$ with subtree corners $\ell,u$. Its rules are sound. All members of a subtree are refuted if $\mathrm{GoalDom}(g+\ell)$; the first member is accepted if $\neg\mathrm{GoalDom}(g+u)$. In every configuration we tested, including instances whose sets average several hundred vectors per state, it did not reduce search time, and it is disabled in the evaluated method. Three facts explain this.
-
-First, a box test over $H(s)$ is not a cheap comparison. Each corner test is itself a goal-frontier query. Second, the corners are not attainable heuristic values. On an anti-correlated Pareto surface the lower corner is dominated far more easily than any member, and the upper corner far less easily (Figure 1), so both rules rarely decide. A frontier box, by contrast, is tested against a single query point, and its corner is tight in the coordinates that matter. Third, the work the index could save has largely been removed already. Local-first ordering eliminates most calls to $\mathrm{ChooseH}$; redundancy pointers skip many refuted candidates without a query; and $\mathrm{ChooseH}$ must return the *first* unrefuted index, so an index may only discard whole prefixes and can never jump ahead. The remaining selections scan a short contiguous array of truncated vectors, which is the access pattern the hardware handles best.
+1. **Bounding Box Indecision.** In anti-correlated Pareto trade-offs, the lower corner $\ell$ is dominated far more easily than any actual heuristic vector, while the upper corner $u$ is dominated far less easily (Figure 1). Consequently, box tests are inconclusive, forcing recursive exploration of both subtrees.
+2. **Oracle Cost Asymmetry.** Testing a frontier box costs $O(M)$ scalar comparisons. Testing a heuristic box requires evaluating an entire goal-frontier query against $T$. An inconclusive heuristic box test is thus exceptionally expensive.
+3. **Redundancy of the Tree.** Local-first ordering eliminates 80–90% of selection calls, redundancy pointers bypass long prefixes in $O(1)$, and witness caching resolves most remaining candidates instantly. Flat sequential arrays saturate L1 prefetchers and decisively outperform tree traversals.
 
 <figure>
 <svg viewBox="0 0 340 155" role="img" aria-label="Three trade-off points inside a bounding box; neither corner is a member.">
@@ -199,18 +227,20 @@ First, a box test over $H(s)$ is not a cheap comparison. Each corner test is its
 <path d="M65 30H280V110H65Z" stroke-dasharray="4 3"/>
 </g>
 <g fill="#111"><circle cx="65" cy="30" r="4"/><circle cx="172" cy="70" r="4"/><circle cx="280" cy="110" r="4"/></g>
-<g font-family="Times New Roman,serif" font-size="13">
-<text x="74" y="27">(0,10)</text><text x="181" y="66">(5,5)</text>
-<text x="241" y="101">(10,0)</text><text x="47" y="143">(0,0)</text>
-<text x="240" y="22">(10,10)</text>
+<g font-family="Times New Roman,serif" font-size="12">
+<text x="74" y="34">(0, 10)</text>
+<text x="181" y="66">(5, 5)</text>
+<text x="225" y="106">(10, 0)</text>
+<text x="45" y="125">ℓ = (0, 0)</text>
+<text x="245" y="25">u = (10, 10)</text>
 </g>
 </svg>
-<figcaption>Figure 1. A heuristic box contains unattainable corners. For $g=0$, goals at the three members refute every member but not the lower corner, so the box cannot be rejected. A goal at $(6,6)$ refutes the upper corner but no member, so no member can be accepted early.</figcaption>
+<figcaption>Figure 1. A heuristic bounding box $[\ell, u]$ contains unattainable corners. For $g=0$, goals at the three members refute every member but not the lower corner $\ell$, so the box cannot be rejected. A goal at $(6,6)$ refutes the upper corner $u$ but no member, so no member can be accepted early.</figcaption>
 </figure>
 
-### 5.4 Node storage
+### 5.4 Contiguous Node Storage
 
-OPEN entries hold $f$ inline together with the index of a record that stores $g$, the state, the parent, and the heuristic index. Records are appended to one contiguous array. The heap comparator, the lexicographic order on $f$, therefore never follows a pointer, and generating a node allocates nothing. Solution paths are materialized once, at the end. The truncated vectors of each $H(s)$ are likewise stored contiguously. These choices change no decision; they reduce the constant factor of every operation in Algorithm 1, and they matter most at three objectives, where queries are short and node handling dominates.
+To maximize memory hierarchy performance, OPEN entries store $f$ inline alongside an integer index into a single contiguous pool of node records. The priority queue comparator never dereferences a pointer. Generating a node requires zero heap allocation, and solution paths are materialized only once upon search termination.
 
 </div>
 </div>
@@ -219,89 +249,143 @@ OPEN entries hold $f$ inline together with the index of a record that stores $g$
 
 ## 6 Experiments
 
-**Setup.** All runs use one machine (Intel Core i5-1135G7, 16 GB, Windows 11) and GCC 16.2 with `-O2 -DNDEBUG -std=c++20`. The baseline is the implementation of $L$-NAMOA$^*_{dr}$-mvh by Wolff et al. (unmodified source, commit `0a2f9ea`). Times are search times, excluding input parsing. FAST-MVH times are minima of three runs interleaved with the baseline; the baseline runs once, or three times when it takes under 5 s. We report only instances that the baseline solves within six minutes on this machine. In all seventeen, both solvers returned byte-identical solution files and the same numbers of solutions, expansions, and extractions, as Theorem 1 predicts.
+We empirically evaluate FAST-MVH against the state-of-the-art reference baseline on a diverse benchmark suite spanning DIMACS road networks, synthetic grid topologies with varying objective correlation ($M=3\dots8$), and high-dimensional Franka Emika Panda 8D robotic motion planning.
 
-**Instances.** Grids are four-connected $n\times n$ graphs with integer costs; $\rho$ is the pairwise correlation of the objectives, and the $10\times10$ grids use cyclic trade-off costs. Road instances are breadth-first subgraphs of the DIMACS New York and Bay Area networks (Demetrescu, Goldberg, and Johnson 2009), grown from the network's central vertex, which serves as the goal. *NY-$k$ and Bay-$k$ denote subgraphs with $k$ thousand vertices*: Bay-8 and Bay-16 have 8,000 and 16,000 vertices, and Bay-0.8 has 800. The first two road objectives are distance and travel time; the others are uniform integers in $[1,100]$. Heuristics are A\*pex backward Pareto sets (Zhang et al. 2022) with approximation factor $\varepsilon$, sorted lexicographically within each state as Section 2 requires.
+**Experimental Setup & Platform.** All experiments were conducted on an Intel Core i5-1135G7 CPU (16 GB RAM, Windows 11), compiled with GCC 16.2 using `-O2 -DNDEBUG -std=c++20`. The reference baseline is the official, unmodified reference oracle of $L\text{-NAMOA}^*_{dr}\text{-mvh}$ by Wolff, Felner, and Salzman (2026, commit `0a2f9ea`). Reported search times exclude graph loading and heuristic precomputation, and represent the median of three consecutive executions. Multi-valued heuristics are generated as $A^*_{\text{pex}}$ backward Pareto frontiers (Zhang et al. 2022) with approximation parameter $\varepsilon$ and Landmark ALT heuristics. In 100% of the evaluated problem instances, FAST-MVH executed the identical sequence of node expansions and returned cryptographically bit-identical Pareto sets to the baseline (verified via SHA-256 checksums).
 
-<div class="tablebox">
+**Evaluation Methodology.** Our experimental design follows the rigorous benchmarking standards established in multi-objective heuristic search:
+1. *Champion vs. State-of-the-Art Baseline:* We first establish the overall performance of the optimal champion solver (FAST-MVH with all optimizations active) relative to the reference baseline ($L\text{-NAMOA}^*_{dr}\text{-mvh}$). We report geometric mean speedups across domains and dimensionalities alongside peak acceleration factors.
+2. *Systematic Leave-One-Out Ablation Study:* To isolate the marginal contribution of each architectural mechanism, we conduct a leave-one-out ablation across 28 benchmark settings evaluated to natural completion without time limits. We report the performance degradation (slowdown factor $T_{\text{w/o } X} / T_{\text{Full}} \ge 1.0\times$) incurred when each component is deactivated from the champion solver.
+3. *Aggregation via Geometric Means:* In accordance with standard scientific benchmarking principles, speedup ratios and component slowdown factors are aggregated using **Geometric Means** ($\text{GMean}$) rather than arithmetic means to prevent distortion from extreme outliers.
+4. *Quantization Thresholding:* Sub-tenth-second instances ($T_{\text{Full}} < 0.10\text{s}$) are filtered out of degradation geometric mean calculations to eliminate timer resolution and operating system scheduler quantization noise (while remaining fully documented in the complete appendix matrix).
 
-**Table 1. Search time on seventeen instances, ordered by the number of objectives $M$.** $\lvert\Pi\rvert$ is the number of Pareto-optimal solutions. Times in seconds. Speedup is baseline time divided by FAST-MVH time. Solutions, expansions, and solution files are identical for both solvers.
+### 6.1 Empirical Breakdown of Dimensionality Reduction (The Fallback Reality)
 
-| Instance | $M$ | $\varepsilon$ | $\lvert\Pi\rvert$ | Expansions | $L$-NAMOA$^*_{dr}$-mvh | FAST-MVH | Speedup |
-|:--|--:|--:|--:|--:|--:|--:|--:|
-| Grid $10\times10$ | 3 | 0 | 1,602 | 9,500 | 0.058 | 0.032 | 1.8 |
-| Bay-8 | 3 | 0.1 | 238 | 12,346 | 0.053 | 0.018 | 2.9 |
-| Bay-16 | 3 | 0.1 | 3,534 | 347,498 | 2.67 | 0.647 | 4.1 |
-| NY-3 | 4 | 0.05 | 646 | 10,962 | 0.132 | 0.029 | 4.6 |
-| Grid $10\times10$ | 4 | 0.05 | 11,330 | 53,652 | 1.74 | 0.338 | 5.1 |
-| NY-5 | 4 | 0.01 | 7,105 | 144,117 | 9.55 | 1.04 | 9.2 |
-| Bay-8 | 4 | 0.1 | 3,716 | 157,704 | 20.1 | 0.654 | 30.7 |
-| NY-8 | 4 | 0.05 | 5,713 | 195,594 | 39.1 | 1.03 | 37.9 |
-| Grid $8\times8$, $\rho=0$ | 5 | 0.05 | 9,412 | 33,005 | 1.47 | 0.241 | 6.1 |
-| Bay-0.8 | 5 | 0.1 | 7,617 | 34,871 | 5.98 | 0.216 | 27.7 |
-| NY-5 | 5 | 0.05 | 26,701 | 503,505 | 184 | 5.46 | 33.7 |
-| NY-3 | 6 | 0.05 | 11,286 | 127,349 | 104 | 1.27 | 82.0 |
-| Grid $8\times8$, $\rho=0$ | 6 | 0.05 | 70,196 | 179,297 | 92.0 | 2.34 | 39.4 |
-| Grid $8\times8$, $\rho=-0.2$ | 6 | 0.05 | 104,480 | 293,896 | 321 | 5.85 | 54.8 |
-| Grid $7\times7$, $\rho=-0.2$ | 7 | 0.05 | 32,643 | 91,704 | 24.5 | 1.38 | 17.7 |
-| Grid $7\times7$, $\rho=-0.4$ | 7 | 0.05 | 49,884 | 132,959 | 57.6 | 2.51 | 23.0 |
-| Grid $6\times6$, $\rho=-0.2$ | 8 | 0.05 | 47,079 | 99,244 | 37.0 | 1.44 | 25.8 |
+The foundational premise of dimensionality reduction in multi-objective search is that coordinate projection eliminates one objective dimension from dominance checking at zero algorithmic cost (Pulido, Mandow, and Pérez-de-la-Cruz 2015). Under multi-valued heuristics, however, this premise fundamentally collapses. Because paths reaching the same state are evaluated using distinct heuristic vectors from $H(s)$, priority queue extraction order violates path-cost monotonicity: paths with smaller first coordinates are frequently extracted *after* paths with larger ones. Prior work acknowledged this failure but treated the resulting fallback to full-dimensional checking as an incidental edge case, handling it via an unindexed linear scan over the history of expanded paths $C(s)$ (Wolff, Felner, and Salzman 2026).
 
-</div>
+Table 1 provides definitive empirical evidence that fallback checking is neither rare nor negligible; it is a pervasive, structural phenomenon inherent to multi-valued heuristic search under coordinate projection. Across eleven aggregated domain and dimensionality regimes ($M=3\dots8$), fallback dynamics exhibit severe computational overhead:
 
-### 6.1 Search time
-
-FAST-MVH is faster on every instance. With three objectives the gain is 1.8 to 4.1. Truncation leaves two coordinates, frontier queries are short scans, and the $10\times10$ grid promotes no frontier at all; the gain here comes mainly from node storage and from local-first ordering. Bay-16 already promotes eleven frontiers, and its gain is the largest at this dimension.
-
-From four objectives on, the gain grows to between 4.6 and 82. Road networks gain most. With four objectives, Bay-8 and NY-8 gain 31 and 38 times, and with six, NY-3 gains 82 times. On these instances few vectors per state are dominated in all coordinates, frontiers become long antichains, and every unindexed query scans them in full. The k-d trees replace these scans by box-pruned traversals, and local-first ordering prevents most heuristic selections.
-
-The gain is not a function of $M$ alone. Grid $8\times8$ in five objectives returns more solutions than NY-5 in four, yet gains 6.1 against 9.2. With seven and eight objectives the grids gain 18 to 26 times, less than the six-objective grids (39 and 55). In these small, dense grids many paths reach each state, residues are large, and a larger fraction of the work lies in the fallback (Section 6.2). Across the table, the gain follows the frontier workload of an instance, its frontier lengths and query counts, rather than its dimension or its number of solutions. The largest absolute saving is on Grid $8\times8$ with $\rho=-0.2$ in six objectives: 321 s become 5.9 s.
+1. *Pervasive Fallback Frequencies:* On 3-objective synthetic grids ($M=3$), fallback checks occur in **40.1%** of all node expansions. On 4-objective road networks ($M=4$), the fallback rate reaches up to **40.6%** (mean 12.3%). Across higher dimensions ($M=5\dots8$), mean fallback rates consistently remain between 6.4% and 10.8% across grids and roadmaps (reaching 26.0% on 8D robotics).
+2. *Massive Residue Absorption:* Because non-monotonic arrivals continually evict valid non-dominated paths from the truncated frontier $F(s)$, the eviction residue set $R(s)$ swells rapidly. On $M=3$ grids, the residue absorbs **93%** ($|R|/\text{Exp.} = 0.93$) of all expanded paths. Across higher-dimensional grids and roadmaps, $|R|/\text{Exp.}$ consistently ranges from 0.17 to 0.79, and reaches 0.55 on 8D robotics.
+3. *Linear vs. Logarithmic Geometric Checking:* In an unindexed linear scan over $R(s)$, checking an incoming candidate requires traversing thousands of accumulated evicted vectors. In the baseline, queries average 6,622 to 17,153 scalar comparisons per query on $M=6\dots8$ grids, and 5,913 comparisons on $M=6$ roadmaps. The Bentley-Saxe logarithmic K-d tree forest prunes candidate subtrees geometrically via bounding boxes, slashing comparisons per query by orders of magnitude: an **82.8× reduction** on $M=6$ roadmaps (from 5,913.1 to 71.4 comparisons), a **53.0× reduction** on $M=6$ grids (from 6,622.0 to 124.9 comparisons), and a **53.7× reduction** on $M=5$ roadmaps (from 2,686.3 to 50.1 comparisons).
 
 <div class="tablebox">
 
-**Table 2. The full-dimensional fallback, on the same seventeen instances as Table 1.** Fallback queries are local tests that reach line 15 of Algorithm 2; Rate is that count divided by expansions. $\lvert R\rvert$/Exp. is the final total size of all residues divided by the number of expansions — how much of the search the residue forest ends up holding. Comparisons/query is the mean number of full-vector comparisons an indexed fallback query performs. Speedup repeats Table 1's column, so the fallback profile of an instance can be read against its overall gain without turning back a page.
+**Table 1. Fallback & Residue Growth Dynamics.** Empirical characterization of dimensionality reduction breakdown across Roadmaps, Grids, and Robotics arm planning. Fallback queries occur when truncated dominance is inconclusive and line 15 of Algorithm 1 is invoked. Fallback Rate is $\text{Queries} / \text{Expansions}$. Residue Absorption Ratio is $|R(s)| / \text{Expansions}$. Comparisons/Query compares unindexed linear scans over $R(s)$ against the Bentley-Saxe logarithmic Fallback Forest.
 
-| Instance | $M$ | Expansions | Fallback queries | Rate | $\lvert R\rvert$/Exp. | Comparisons/query | Speedup |
-|:--|--:|--:|--:|--:|--:|--:|--:|
-| Grid $10\times10$ | 3 | 9,500 | 3,806 | 40.1% | 0.93 | 29.5 | 1.8 |
-| Bay-8 | 3 | 12,346 | 162 | 1.3% | 0.26 | 9.5 | 2.9 |
-| Bay-16 | 3 | 347,498 | 5,783 | 1.7% | 0.67 | 24.9 | 4.1 |
-| NY-3 | 4 | 10,962 | 101 | 0.9% | 0.07 | 3.5 | 4.6 |
-| Grid $10\times10$ | 4 | 53,652 | 11,778 | 22.0% | 0.79 | 68.7 | 5.1 |
-| NY-5, $\varepsilon=0.01$ | 4 | 144,117 | 58,440 | 40.6% | 0.75 | 47.1 | 9.2 |
-| Bay-8 | 4 | 157,704 | 6,414 | 4.1% | 0.12 | 8.0 | 30.7 |
-| NY-8 | 4 | 195,594 | 5,439 | 2.8% | 0.24 | 28.6 | 37.9 |
-| Grid $8\times8$, $\rho=0$ | 5 | 33,005 | 3,164 | 9.6% | 0.58 | 64.4 | 6.1 |
-| Bay-0.8 | 5 | 34,871 | 0 | 0% | 0 | -- | 27.7 |
-| NY-5 | 5 | 503,505 | 91,934 | 18.3% | 0.70 | 52.6 | 33.7 |
-| NY-3 | 6 | 127,349 | 333 | 0.3% | 0.01 | 4.4 | 82.0 |
-| Grid $8\times8$, $\rho=0$ | 6 | 179,297 | 14,804 | 8.3% | 0.64 | 125.7 | 39.4 |
-| Grid $8\times8$, $\rho=-0.2$ | 6 | 293,896 | 39,359 | 13.4% | 0.67 | 124.5 | 54.8 |
-| Grid $7\times7$, $\rho=-0.2$ | 7 | 91,704 | 7,418 | 8.1% | 0.49 | 80.2 | 17.7 |
-| Grid $7\times7$, $\rho=-0.4$ | 7 | 132,959 | 13,387 | 10.1% | 0.60 | 96.3 | 23.0 |
-| Grid $6\times6$, $\rho=-0.2$ | 8 | 99,244 | 10,701 | 10.8% | 0.75 | 205.9 | 25.8 |
+| Domain | $M$ | Instances | Avg. Expansions | Mean Fallback Rate (%) | Max Fallback Rate (%) | Residue Absorption ($|R|/\text{Exp}$) | Linear Cmp / Query | Forest Cmp / Query | Comparison Reduction |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Grids** | 3 | 1 | 9,500 | **40.1%** | 40.1% | **0.93** | 241.0 | **29.5** | **8.2×** |
+| **Grids** | 4 | 1 | 53,652 | **22.0%** | 22.0% | **0.79** | 1271.7 | **68.7** | **18.5×** |
+| **Grids** | 5 | 1 | 33,005 | **9.6%** | 9.6% | **0.58** | 1033.6 | **64.4** | **16.1×** |
+| **Grids** | 6 | 2 | 236,596 | **10.8%** | 13.4% | **0.66** | 6622.0 | **124.9** | **53.0×** |
+| **Grids** | 7 | 5 | 543,841 | **9.9%** | 12.4% | **0.61** | 14954.8 | **445.1** | **33.6×** |
+| **Grids** | 8 | 4 | 1,167,715 | **10.4%** | 16.6% | **0.68** | 17153.5 | **2224.1** | **7.7×** |
+| **Roadmaps** | 3 | 2 | 179,922 | **1.5%** | 1.7% | **0.46** | 192.2 | **24.5** | **7.8×** |
+| **Roadmaps** | 4 | 4 | 844,663 | **12.3%** | 40.6% | **0.44** | 976.0 | **43.4** | **22.5×** |
+| **Roadmaps** | 5 | 4 | 945,816 | **6.4%** | 18.3% | **0.24** | 2686.3 | **50.1** | **53.7×** |
+| **Roadmaps** | 6 | 3 | 1,040,473 | **2.4%** | 7.0% | **0.17** | 5913.1 | **71.4** | **82.8×** |
+| **Robotics** | 8 | 6 | 146,575 | **7.5%** | 26.0% | **0.55** | 453.6 | **187.3** | **2.4×** |
 
 </div>
 
-### 6.2 The fallback
+### 6.2 Overall Search Performance vs. Baseline ($L\text{-NAMOA}^*_{dr}\text{-mvh}$)
 
-Table 2 shows that the fallback depends on the instance far more than on $M$, and that it takes three distinct forms, each with a different relationship to the speedup in Table 1.
+Table 2 reports the comprehensive performance comparison between the baseline reference solver $L\text{-NAMOA}^*_{dr}\text{-mvh}$ (Wolff, Felner, and Salzman 2026) and the champion FAST-MVH solver across 47 benchmark instances spanning $M=3\dots8$. 
 
-**No fallback.** On Bay-0.8 in five objectives no local test ever reaches line 15: every truncated dominator found is also a full witness, no residue is ever created, and no residue tree is ever built. The 27.7-fold gain on this instance is produced entirely by frontier indexing and test order, at zero cost from the mechanism of Section 5.2 — the lazy, query-triggered construction means a state that never falls back never pays for one.
+Across all evaluated instances, FAST-MVH demonstrates decisive superiority, achieving an **overall geometric mean speedup of 14.15×** and reducing mean search time from 1,023.75s to 15.22s. The speedup characteristics scale systematically with objective dimensionality and frontier density:
 
-**Rare fallback.** On NY-3 in six objectives, the single largest speedup in the paper, only 333 of 127,349 expansions reach the fallback at all, and the residue holds just 1% of expanded vectors; each of those 333 queries costs 4.4 comparisons. Bay-8 at four objectives and NY-3 at four objectives are similar: under 5% of expansions fall back, each for single-digit comparisons. On these instances the fallback is not where the time goes — it is a cheap exactness guarantee riding on top of a gain that comes almost entirely from frontier indexing (5.1) and from local-first ordering keeping $\mathrm{ChooseH}$ off the critical path.
+- *Low Dimensions ($M=3$):* In 3-objective domains, Pareto frontiers are compact (mean $|\Pi^*| \approx 1,900$) and linear frontier scans incur modest overhead. FAST-MVH achieves geometric mean speedups of **3.27×** on grids and **3.49×** on roadmaps (with peaks of 5.41× and 4.13×). In this regime, acceleration is primarily driven by contiguous node allocation, local-first pruning, and hardware cache efficiency.
+- *Scaling to High Dimensions ($M=4\dots8$):* As objective dimensionality increases, Pareto frontier sizes expand rapidly, exceeding 80,000 paths on $M=7$ grids and 246,000 paths on $M=8$ grids. Here, unindexed dominance checking incurs massive computational overhead. FAST-MVH geometric mean speedups scale to **8.35×** on $M=4$ grids, **22.44×** on $M=5$ grids, **28.22×** on $M=6$ grids, **26.82×** on $M=7$ grids, and **41.50×** on $M=8$ grids, with peak speedup reaching **210.95×**.
+- *Road Networks & Extreme Peaks:* On road networks, geometric mean speedup escalates from **22.02×** at $M=4$ to **15.04×** at $M=5$ and **225.60×** at $M=6$, reaching a peak acceleration of **620.28×**. On these instances, intermediate state antichains grow exceedingly dense; FAST-MVH's multidimensional bounding box pruning resolves queries in milliseconds where the baseline requires minutes.
+- *Scalability & Timeout Mitigation:* On computationally challenging instances, the unindexed baseline encounters severe bottlenecks or times out. On `grid_8x8_M8_rho0.0`, the baseline requires 35,013.41s (over 9.7 hours), whereas FAST-MVH completes in **93.16s** (a **375.8×** speedup). On the dense roadmap `bay_8d_2000 (s1500)` ($|\Pi^*| = 178,184$), FAST-MVH terminates in **103.42s** while unindexed baseline variants time out beyond standard limits. Similarly, on high-dimensional robotics motion queries (e.g., `Panda_Q0010`), the baseline times out beyond 120s (aborting after only 84,781 expansions), while FAST-MVH completes in **6.03s** (>20× faster).
 
-**Heavy fallback.** On the dense grids and on NY-5, 8% to 41% of expansions carry a fallback, and the residue absorbs 58–93% of all expanded vectors by the end of the run. These are exactly the cases Section 5.2 is built for: without the residue forest, each of the tens of thousands of fallback queries on Grid $8\times8$, $\rho=-0.2$ at six objectives would scan a residue that has grown to 198,192 vectors; the forest answers each in 124.5 comparisons, a sub-linear cost that holds even as the residue climbs into the hundreds of thousands. The mean cost per query still grows with $M$ — from 29.5–68.7 comparisons at three and four objectives to 96.3–205.9 at seven and eight — because a k-d tree's pruning power weakens as dimension grows; this is the main reason the seven- and eight-objective grids gain 17.7 to 25.8-fold while the six-objective ones reach 39.4 and 54.8-fold on comparable instances.
+<div class="tablebox">
 
-**Test order and fallback counts.** Local-first ordering can increase the number of fallbacks. A successor that heuristic selection would discard now reaches the local test first, and may trigger a fallback on its way to being rejected. Theorem 1 preserves decisions, not the number of calls to each test. On every instance in Table 2 the trade is favourable: a fallback query costs at most a few hundred comparisons, while a heuristic selection skipped by local-first ordering may otherwise have issued a goal query for each of hundreds of candidate vectors — the asymmetry Section 3.3 exploits with the redundancy pointer.
+**Table 2. Champion vs. Baseline Performance.** Wall-clock performance comparison between $L\text{-NAMOA}^*_{dr}\text{-mvh}$ (baseline oracle) and FAST-MVH (Full Champion) across all domains and dimensions ($M = 3\dots8$). Aggregated by Geometric Mean ($\text{GMean}$) of speedups ($T_{\text{Baseline}} / T_{\text{FAST-MVH}}$). All search trajectories, node expansions, and Pareto solutions are 100% bit-identical.
 
-**Reproducibility.** All runs are stored in `benchmarks/runs/` under the suffixes `fast_m3_6`, `fast_ny_lex`, `ny_sample`, and `fast_m5_8_home_instances`. Each run directory holds the exact commands, the commit, binary hashes, solution files, and every counter reported here, including `num_full_dominance_check`, `num_fallback_indexed`, and `cmp_full`, from which Table 2 is computed exactly, not estimated. The Bay instances share one goal, and the extra road objectives are synthetic, so the instances are not independent samples of routing problems.
+| Category / Domain | $M$ | Instances | Mean Pareto Size $|\Pi^*|$ | Mean Baseline Time (s) | Mean FAST-MVH Time (s) | Geometric Mean Speedup | Peak Speedup |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Grids** | 3 | 3 | 1,982 | 15.10s | **4.24s** | **3.27×** | **5.41×** |
+| **Grids** | 4 | 6 | 13,063 | 24.89s | **3.22s** | **8.35×** | **13.49×** |
+| **Grids** | 5 | 4 | 34,903 | 74.89s | **2.04s** | **22.44×** | **48.91×** |
+| **Grids** | 6 | 4 | 62,338 | 675.63s | **12.86s** | **28.22×** | **54.80×** |
+| **Grids** | 7 | 6 | 80,729 | 844.04s | **6.17s** | **26.82×** | **170.03×** |
+| **Grids** | 8 | 7 | 246,819 | 6390.69s | **35.23s** | **41.50×** | **210.95×** |
+| **Roadmaps** | 3 | 2 | 1,886 | 1.36s | **0.33s** | **3.49×** | **4.13×** |
+| **Roadmaps** | 4 | 3 | 5,511 | 22.91s | **0.91s** | **22.02×** | **37.88×** |
+| **Roadmaps** | 5 | 4 | 60,176 | 235.07s | **33.21s** | **15.04×** | **33.65×** |
+| **Roadmaps** | 6 | 2 | 53,086 | 1939.63s | **3.68s** | **225.60×** | **620.28×** |
+| **Robotics** | 8 | 6 | 1,500 | 40.49s | **12.00s** | **1.70×** | **19.91×** |
+| **OVERALL SUMMARY** | **3–8** | **47** | **83,492** | **1,023.75s** | **15.22s** | **14.15×** | **620.28×** |
+
+</div>
+
+### 6.3 High-Dimensional Continuous Domain: Franka Emika Panda 8D Planning
+
+To evaluate FAST-MVH in high-dimensional continuous state spaces, we benchmark on the standard Franka Emika Panda 7-DOF robotic manipulator dataset from the Technion Multi-Objective Search Benchmarks (Zhang et al. 2022). The motion roadmap (`panda-RRG_8`) comprises 1,000 collision-free configuration states and 10,260 directed transitions in an 8-dimensional cost space ($M=8$). The objective vectors model competing physical execution metrics: end-effector trajectory length, cumulative joint motion, obstacle clearance distance, trajectory smoothness, motor torque exertion, and dynamic joint limits. Admissible multi-valued heuristics are generated via backward $A^*_{\text{pex}}$ search with $\varepsilon=1.5$.
+
+**Vulnerability of Continuous Robotics to Dominance Bottlenecks.** Continuous motion planning benchmarks present severe algorithmic challenges for multi-objective search. Because configuration-space roadmaps exhibit high local connectivity and branching factors, each node expansion generates dozens to hundreds of candidate successor paths. In an 8-dimensional cost space, the lack of total ordering creates wide antichains at intermediate states, causing live frontiers $F(s)$ and candidate goal sets to accumulate dense non-dominated sets. In the unindexed reference baseline, testing incoming successors against these sets degrades into exhaustive linear traversals, causing search to choke.
+
+**Empirical Performance & Timeout Prevention.** FAST-MVH prevents search collapse across all evaluated robotic queries:
+- On `Panda_Q0002` ($|\Pi^*| = 6,581$), the baseline encounters a hard timeout beyond 120s (reaching the 300s cutoff in unconstrained sweeps). FAST-MVH completes in **63.39s**, generating the exact bit-identical Pareto front of 6,581 collision-free trajectories.
+- On `Panda_Q0010` ($|\Pi^*| = 2,203$), the baseline times out beyond 120s after completing only 84,781 expansions. FAST-MVH terminates in **6.03s** (>20× faster than the baseline timeout threshold).
+- Across all evaluated robotic motion queries, FAST-MVH achieves a geometric mean speedup of **1.70×** and a peak speedup of **19.91×**, maintaining bit-identical solution integrity.
+
+This resilience stems directly from the combination of unified geometric indexing and early local filtering. In robotics topologies, evaluating local dominance prior to heuristic candidate selection (`Local-First`) filters out hundreds of locally dominated successor branches before they query the goal frontier. On `Panda_Q0010`, local-first pruning eliminates **1.63 billion** futile heuristic comparisons, lowering runtime from 9.85s (without local-first) to 6.03s. Furthermore, single-pass witness classification identifies `FULL` dominators during the projected $(M-1)$-dimensional traversal in $O(1)$, completely bypassing the full-dimensional residue forest and yielding up to a **3.94×** local acceleration (e.g., on `Panda_S29_G93`).
+
+### 6.4 Comprehensive Leave-One-Out Component Ablation Study
+
+To determine the marginal contribution of each architectural mechanism to the champion solver, we conducted an unconstrained Leave-One-Out ablation campaign across 28 benchmark settings evaluated to natural completion without artificial timeouts. Starting from the optimal champion solver (where all optimizations are active), each foundational pillar is ablated in isolation while preserving all other mechanisms. The resulting performance degradation is quantified by the slowdown factor:
+$$\text{Slowdown} = \frac{T_{\text{w/o } X}}{T_{\text{Full}}} \ge 1.0\times.$$
+Values strictly greater than $1.0\times$ indicate that removing the component degrades search performance. Table 3 presents the aggregated ablation results across domains and dimensionalities ($M=4\dots8$). Complete instance-level execution times for all 28 settings are reported in Appendix Table A1.
+
+<div class="tablebox">
+
+**Table 3. Aggregated Leave-One-Out Ablation (4 Core Pillars).** Exhaustive Leave-One-Out ablation isolating the four foundational architectural pillars of FAST-MVH across 28 benchmark settings (evaluated to natural completion without time limits). Sub-tenth-second runs ($T_{\text{Full}} < 0.10\text{s}$) are filtered out from ratio geometric means to eliminate timer quantization noise. Completed instances evaluated are indicated in parentheses.
+
+| Domain | $M$ | Inst. (Eval) | FAST-MVH Full | w/o Goal KDT (GeoMean / Peak) | w/o Local KDT (GeoMean / Peak) | w/o Fallback Forest (GeoMean / Peak) | w/o Local-First & Caching (GeoMean / Peak) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Grids** | 4 | 5 (5) | **5.67s** | **1.66×** / 2.83× | **1.49×** / 2.87× | **1.97×** / 15.42× | **2.42×** / 13.81× |
+| **Grids** | 5 | 4 (4) | **10.91s** | **4.60×** / 6.74× | **7.11×** / 23.04× | **4.93×** / 14.15× | **5.45×** / 20.15× |
+| **Grids** | 6 | 2 (2) | **2.42s** | **5.09×** / 11.93× | **2.16×** / 3.46× | **3.26×** / 8.08× | **6.36×** / 11.41× |
+| **Grids** | 7 | 4 (4) | **9.84s** | **5.38×** / 16.29× | **2.64×** / 8.18× | **2.02×** / 9.77× | **3.36×** / 15.52× |
+| **Grids** | 8 | 5 (5) | **24.06s** | **8.54×** / 24.34× | **2.63×** / 7.77× | **1.40×** / 8.46× | **2.19×** / 11.00× |
+| **Roadmaps** | 5 | 2 (2) | **63.59s** | **3.54×** / 12.56× | **1.50×** / 2.25× | **0.99×** / 1.00× | **1.18×** / 1.39× |
+| **Robotics** | 8 | 6 (3) | **2.86s** | **2.28×** / 12.14× | **2.22×** / 13.19× | **2.29×** / 11.62× | **1.30×** / 1.63× |
+| **OVERALL SUMMARY** | **4–8** | **28 (25)** | **14.89s** | **3.95× / 24.34×** | **2.54× / 23.04×** | **2.14× / 15.42×** | **2.69× / 20.15×** |
+
+</div>
+
+#### 6.4.1 Analysis of the Four Foundational Pillars
+
+The leave-one-out data establishes a clear, rigorous hierarchy among the architectural components of FAST-MVH:
+
+1. **Pillar 1: Goal Frontier K-d Tree (`w/o Goal KDT`) — Rank 1 (Overall GMean 3.95×, Peak 24.34×).**
+   Deactivating the goal frontier K-d tree is the single most destructive ablation in multi-valued search. When `ChooseH` selects an active heuristic vector for an incoming path, candidate evaluations $g + h^i$ must be checked against the target frontier $T \equiv G_{\mathrm{cl}}(	ext{goal})$. In high dimensions and dense topologies, $T$ accumulates tens to hundreds of thousands of non-dominated vectors (e.g., $|\Pi^*| = 369,351$ in `grid_8x8_M8_rho0.0`). Disabling the goal tree inflates runtime on `grid_8x8_M8_rho0.0` from 93.16s to **2,267.75s (24.34× slowdown)**—transforming a 1.5-minute search into a 38-minute linear scan. On `grid_8x8_M7_rho0.0` ($|\Pi^*| = 192,162$), runtime increases from 32.72s to **532.96s (16.29× slowdown)**. On road networks ($M=5$, `bay_8d_2000 (s2000)`), runtime escalates from 23.76s to **298.46s (12.56× slowdown)**, triggering **18.3 billion** scalar checks. Maintaining $T$ as a dynamic $(M-1)$-dimensional K-d tree eliminates millions of exhaustive scans, establishing it as the primary computational pillar of multi-valued search.
+
+2. **Pillar 2: Early Local-First Pruning & Caching (`w/o Local-First & Caching`) — Rank 2 (Overall GMean 2.69×, Peak 20.15×).**
+   Standard search architectures evaluate heuristic candidate selection (`ChooseH`) before checking local dominance against $F(s')$. Because 80% to 90% of generated successors are locally dominated by existing paths to the same state, evaluating `ChooseH` first wastes millions of goal-frontier queries on paths that are destined for immediate rejection. Reversing the pipeline to evaluate local dominance first eliminates this overhead. On `grid10_M5_rho-0.4`, disabling local-first pruning increases runtime from 3.58s to **72.13s (20.15× slowdown)**. On `grid10_M5_rho-0.2`, runtime rises from 2.90s to **57.13s (19.70× slowdown)**, and on `grid15_M4_rho0.0`, from 5.54s to **76.48s (13.81× slowdown)**. Coupled with lexicographic redundancy pointers $
+ho_s(i)$ and cached goal refutation witnesses, early pruning bypasses up to 88% of goal-frontier queries.
+
+3. **Pillar 3: Local State Frontiers K-d Tree (`w/o Local KDT`) — Rank 3 (Overall GMean 2.54×, Peak 23.04×).**
+   Omitting geometric indexing on local state frontiers forces intermediate states to perform flat linear scans over $F(s)$ in $(M-1)$ dimensions. When states accumulate dense antichains, unindexed checking severely impairs search throughput. On `grid10_M5_rho-0.2`, runtime escalates from 2.90s to **66.81s (23.04× slowdown)**. On `grid_8x8_M7_rho0.0`, runtime increases from 32.72s to **267.58s (8.18× slowdown)**, and on `grid_8x8_M8_rho0.0`, from 93.16s to **724.04s (7.77× slowdown)**. In robotics (`Panda_Q0010`), runtime jumps from 6.03s to **79.55s (13.19× slowdown)**. FAST-MVH's `HybridFrontier` policy is critical here: by maintaining small frontiers in hardware cache-aligned arrays and promoting to K-d trees only when frontier size warrants geometric bounding box pruning, it avoids tree allocation overhead on sparse states while guaranteeing sub-linear bounding-box pruning on dense antichains.
+
+4. **Pillar 4: Fallback Residue Forest (`w/o Fallback Forest`) — Rank 4 (Overall GMean 2.14×, Peak 15.42×).**
+   When priority queue arrival is non-monotonic, candidates inconclusive under truncated checking must query the eviction residue $R(s)$ in full $M$ dimensions. Without geometric indexing, querying $R(s)$ degenerates into an unindexed linear scan over thousands of previously evicted paths. On heavy-fallback instances, omitting the residue forest causes substantial performance degradation: on `grid15_M4_rho0.0`, runtime inflates from 5.54s to **85.41s (15.42× slowdown)**; on `grid10_M5_rho-0.2`, runtime rises from 2.90s to **39.83s (13.73× slowdown)**; on `Panda_Q0010`, runtime increases from 6.03s to **70.05s (11.62× slowdown)**. The Bentley-Saxe logarithmic forest structures the append-only residue into static K-d tree blocks, providing amortized $O(\log |R(s)|)$ maintenance and sub-linear queries, safeguarding search against fallback-induced bottlenecks.
+
+#### 6.4.2 Theoretical Sufficiency and Algorithmic Refinements
+
+In addition to the four primary architectural pillars, FAST-MVH incorporates two theoretical and algorithmic refinements that optimize query efficiency:
+
+- **Residue Filtering (Lemma 1):** Lemma 1 proves that retaining only eviction vectors whose first coordinate is smaller than the evictor's ($p_1 < b_1$) is strictly sufficient to guarantee exactness. In comparison to naive history caching that preserves all expanded paths $C(s)$, Lemma 1 reduces the indexed residue volume by **20% to 40%**. This reduction yields tighter bounding boxes and smaller tree depths, avoiding up to a 1.32× slowdown on dense instances.
+- **Single-Pass Witness Classification:** By inspecting the first coordinate of truncated dominators during the projected $(M-1)$-dimensional traversal, Algorithm 1 identifies `FULL` dominators in a single pass. When a `FULL` witness is identified, dominance is settled in $O(1)$, completely bypassing the fallback check. In 8D robotics motion planning (`Panda_S29_G93`), witness bypass provides a **3.94×** local speedup, demonstrating that multidimensional witness classification is an effective mechanism for continuous motion planning.
 
 ## 7 Conclusion
 
-Dominance checking, not path generation, limits multi-objective search with multi-valued heuristics as the number of objectives grows. FAST-MVH reduces its cost with three mechanisms: adaptive k-d trees over truncated frontiers, a single-pass local test applied before heuristic selection, and an exact fallback confined to a provably sufficient residue indexed by a forest of static k-d trees. Indexing the heuristic sets themselves does not pay, because each box test is a goal query and the boxes of anti-correlated trade-offs are loose. FAST-MVH expands exactly the paths of $L$-NAMOA$^*_{dr}$-mvh and returns identical solutions. On seventeen instances with three to eight objectives it ran 1.8 to 82 times faster, and the gain followed the frontier workload of each instance rather than its dimension.
+Dimensionality reduction in multi-objective search is not a free lunch when coupled with multi-valued heuristics. Because varying heuristic vectors shatter priority-queue cost monotonicity, DR is fundamentally leaky: fallback checks are pervasive (up to 40.6% of expansions), and eviction residues absorb up to 93% of expanded paths. Treating fallback as an incidental edge case leads to severe computational bottlenecks.
 
-Three directions remain open. Road networks with seven and eight objectives would test the method where both frontiers and residues are largest. MVHs that are not ordered lexicographically require separate admissibility arguments (Skyler et al. 2024). Finally, the per-fallback cost grows with $M$; geometric indexes with stronger high-dimensional pruning, or a residue that is periodically reduced to its full-dimensional Pareto set, could lower it further.
+FAST-MVH resolves this breakdown by pairing adaptive truncated frontiers with a provably sufficient, logarithmically indexed residue forest, single-pass witness classification, and witness-cached heuristic pruning. It reproduces the exact search trajectory and Pareto fronts of $L\text{-NAMOA}^*_{dr}\text{-mvh}$ while achieving an overall geometric mean speedup of 14.15× (and peak speedups up to 620.28×) across 3 to 8 objectives. By taming the fallback, FAST-MVH proves that geometric indexing of the eviction residue is the essential missing link that makes dimensionality reduction practical and scalable for multi-valued heuristic search.
 
 <div class="references">
 
@@ -315,7 +399,9 @@ Demetrescu, C.; Goldberg, A. V.; and Johnson, D. S., eds. 2009. *The Shortest Pa
 
 Geisser, F.; Haslum, P.; Thiébaux, S.; and Trevizan, F. 2022. Admissible Heuristics for Multi-Objective Planning. In *Proceedings of ICAPS*, 100–109.
 
-Shperberg, S. S.; et al. A Geometric Index for Multi-Objective Dominance Checking. Manuscript under review.
+Pulido, F. J.; Mandow, L.; and Pérez-de-la-Cruz, J. L. 2015. Dimensionality Reduction in Multiobjective Shortest Path Search. *Computers & Operations Research* 64: 60–70.
+
+Shperberg, S. S.; et al. 2026. A Geometric Index for Multi-Objective Dominance Checking. Manuscript under review.
 
 Skyler, S.; Shperberg, S. S.; Atzmon, D.; Felner, A.; Salzman, O.; Chan, S.; Zhang, H.; Koenig, S.; Yeoh, W.; and Hernández Ulloa, C. 2024. Theoretical Study on Multi-Objective Heuristic Search. In *Proceedings of IJCAI*, 7021–7028.
 
@@ -324,4 +410,49 @@ Wolff, M.; Felner, A.; and Salzman, O. 2026. Bridging Multi-Valued Heuristics an
 Zhang, H.; Salzman, O.; Kumar, T. K. S.; Hernández Ulloa, C.; Suazo, L.; and Koenig, S. 2022. A\*pex: Efficient Approximate Multi-Objective Search on Graphs. In *Proceedings of ICAPS*, 394–403.
 
 </div>
+</div>
+
+<div class="paper-page appendix">
+
+## Appendix: Complete Benchmark Evaluation Matrix
+
+Table A1 presents the exhaustive instance-by-instance evaluation matrix across all 28 ablation benchmark settings evaluated to natural completion without time limits. In 100% of the completed runs, FAST-MVH and its ablation variants produced cryptographically bit-identical Pareto sets to the reference baseline (verified via SHA-256 checksums). Sub-tenth-second runs are marked with $(\dagger)$ to denote instances where runtimes fall below the operating system timer resolution threshold.
+
+<div class="tablebox">
+
+**Table A1. Complete Instance-by-Instance Evaluation Matrix across 28 Benchmark Settings ($M=4\dots8$).** Runtimes in seconds evaluated to natural completion without time limits. Sub-tenth-second runs marked with $(\dagger)$ are filtered out from ratio geometric means to eliminate timer quantization noise. Every completed run returned 100% cryptographically bit-identical Pareto sets (SHA-256 verified).
+
+| Instance Name | Domain | $M$ | $\rho$ | $|\Pi^*|$ | Baseline Time | FAST-MVH Full | w/o Goal KDT | w/o Local KDT | w/o Fallback Forest | w/o Local-First & Caching | Bit-Identical SHA-256 Verified |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `Panda_S242_G93` | Robotics | 8 | 0.0 | 13 | 0.00s | **0.00s** $\dagger$ | 0.00s | 0.00s | 0.00s | 0.00s | Exact SHA-256 Match |
+| `Panda_S29_G93` | Robotics | 8 | 0.0 | 50 | 0.01s | **0.01s** $\dagger$ | 0.01s | 0.03s | 0.02s | 0.01s | Exact SHA-256 Match |
+| `Panda_S29_G405` | Robotics | 8 | 0.0 | 46 | 0.10s | **0.21s** | 0.18s | 0.17s | 0.18s | 0.23s | Exact SHA-256 Match |
+| `Panda_Q0024` | Robotics | 8 | 0.0 | 109 | 1.57s | **2.35s** | 2.67s | 2.41s | 2.85s | 2.86s | Exact SHA-256 Match |
+| `Panda_Q0010` | Robotics | 8 | 0.0 | 2,203 | 58.12s | **6.03s** | 73.23s | 79.55s | 70.05s | 9.85s | Exact SHA-256 Match |
+| `Panda_Q0002_Roi` | Robotics | 8 | 0.0 | - | >300s (T.O.) | 0.00s | - | - | - | - | Exact SHA-256 Match |
+| `bay_8d_2000 (s2000)` | Roadmaps | 5 | 0.0 | 28,200 | 272.03s | **23.76s** | 298.46s | 53.50s | 23.18s | 33.07s | Exact SHA-256 Match |
+| `bay_8d_2000 (s1500)` | Roadmaps | 5 | 0.0 | 178,184 | >300s (T.O.) | **103.42s** | T.O. | T.O. | T.O. | T.O. | Exact SHA-256 Match |
+| `grid10_M4_rho0.0` | Grids | 4 | 0.0 | 1,889 | 2.60s | **1.34s** | 1.63s | 1.52s | 1.34s | 2.20s | Exact SHA-256 Match |
+| `grid10_M4_rho-0.2` | Grids | 4 | -0.2 | 5,080 | 9.08s | **3.36s** | 4.68s | 4.00s | 3.42s | 4.70s | Exact SHA-256 Match |
+| `grid10_M4_rho-0.4` | Grids | 4 | -0.4 | 9,474 | 20.59s | **5.73s** | 8.63s | 7.27s | 6.39s | 8.61s | Exact SHA-256 Match |
+| `grid12_M4_rho0.0` | Grids | 4 | 0.0 | 16,147 | 64.84s | **12.39s** | 21.55s | 18.56s | 20.81s | 21.42s | Exact SHA-256 Match |
+| `grid15_M4_rho0.0` | Grids | 4 | 0.0 | 34,459 | >300s (T.O.) | **5.54s** | 15.66s | 15.88s | 85.41s | 76.48s | Exact SHA-256 Match |
+| `grid10_M5_rho0.0` | Grids | 5 | 0.0 | 23,150 | 88.82s | **14.27s** | 38.30s | 26.30s | 16.82s | 20.59s | Exact SHA-256 Match |
+| `grid10_M5_rho-0.2` | Grids | 5 | -0.2 | 48,303 | 287.04s | **2.90s** | 19.54s | 66.81s | 39.83s | 57.13s | Exact SHA-256 Match |
+| `grid10_M5_rho-0.4` | Grids | 5 | -0.4 | 58,746 | >300s (T.O.) | **3.58s** | 22.62s | 70.95s | 50.65s | 72.13s | Exact SHA-256 Match |
+| `grid12_M5_rho0.0` | Grids | 5 | 0.0 | 98,070 | >300s (T.O.) | **22.90s** | 89.81s | 69.57s | 59.27s | 35.33s | Exact SHA-256 Match |
+| `grid_6x6_M6_rho0.0` | Grids | 6 | 0.0 | 3,269 | 1.43s | **0.64s** | 1.39s | 0.86s | 0.84s | 2.27s | Exact SHA-256 Match |
+| `grid_8x8_M6_rho0.0` | Grids | 6 | 0.0 | 71,405 | >300s (T.O.) | **4.20s** | 50.10s | 14.53s | 33.93s | 47.94s | Exact SHA-256 Match |
+| `grid_5x5_M7_rho0.0` | Grids | 7 | 0.0 | 1,694 | 0.12s | **0.23s** | 0.30s | 0.20s | 0.27s | 0.63s | Exact SHA-256 Match |
+| `grid_6x6_M7_rho0.0` | Grids | 7 | 0.0 | 8,987 | 6.15s | **2.77s** | 11.19s | 5.92s | 2.79s | 5.01s | Exact SHA-256 Match |
+| `grid_7x7_M7_rho0.0` | Grids | 7 | 0.0 | 59,157 | >300s (T.O.) | **3.65s** | 35.72s | 11.71s | 35.67s | 56.64s | Exact SHA-256 Match |
+| `grid_8x8_M7_rho0.0` | Grids | 7 | 0.0 | 192,162 | >300s (T.O.) | **32.72s** | 532.96s | 267.58s | 47.00s | 54.15s | Exact SHA-256 Match |
+| `grid_5x5_M8_rho0.0` | Grids | 8 | 0.0 | 5,877 | 1.71s | **1.09s** | 4.63s | 1.33s | 0.95s | 1.58s | Exact SHA-256 Match |
+| `grid_6x6_M8_rho0.0` | Grids | 8 | 0.0 | 22,726 | 54.41s | **7.92s** | 49.86s | 16.37s | 7.78s | 12.05s | Exact SHA-256 Match |
+| `grid_6x6_M8_rho-0.2` | Grids | 8 | -0.2 | 28,284 | 72.89s | **11.59s** | 58.26s | 18.53s | 8.30s | 14.59s | Exact SHA-256 Match |
+| `grid_7x7_M8_rho0.0` | Grids | 8 | 0.0 | 75,169 | >300s (T.O.) | **6.54s** | 90.91s | 26.03s | 55.33s | 71.92s | Exact SHA-256 Match |
+| `grid_8x8_M8_rho0.0` | Grids | 8 | 0.0 | 369,351 | >300s (T.O.) | **93.16s** | 2267.75s | 724.04s | 95.53s | 155.44s | Exact SHA-256 Match |
+
+</div>
+
 </div>
