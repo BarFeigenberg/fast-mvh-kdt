@@ -1,0 +1,140 @@
+{
+ "jobs": [
+  {
+   "name": "nyr5k_M4",
+   "family": "ny",
+   "M": 4,
+   "eps": 0.01,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M4",
+   "start": 1,
+   "goal": 5000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\scratchpad\\fast3_campaign\\ny_lex\\nyr5k_M4_apex_e0.01_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 1,
+     "timeout": 900
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "nyr8k_M4",
+   "family": "ny",
+   "M": 4,
+   "eps": 0.05,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr8k_M4",
+   "start": 1,
+   "goal": 8000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\scratchpad\\fast3_campaign\\ny_lex\\nyr8k_M4_apex_e0.05_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 1,
+     "timeout": 900
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "nyr3k_M6",
+   "family": "ny",
+   "M": 6,
+   "eps": 0.05,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr3k_M6",
+   "start": 1,
+   "goal": 3000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\scratchpad\\fast3_campaign\\ny_lex\\nyr3k_M6_apex_e0.05_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 1,
+     "timeout": 900
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "nyr5k_M5",
+   "family": "ny",
+   "M": 5,
+   "eps": 0.05,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M5",
+   "start": 1,
+   "goal": 5000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\scratchpad\\fast3_campaign\\ny_lex\\nyr5k_M5_apex_e0.05_lex.mvh",
+   "solvers": {
+    "maya": {
+     "reps": 1,
+     "timeout": 900
+    },
+    "fast2": {
+     "reps": 3,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 3,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "nyr8k_M5",
+   "family": "ny",
+   "M": 5,
+   "eps": 0.1,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr8k_M5",
+   "start": 1,
+   "goal": 8000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\scratchpad\\fast3_campaign\\ny_lex\\nyr8k_M5_apex_e0.1_lex.mvh",
+   "solvers": {
+    "fast2": {
+     "reps": 1,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 1,
+     "timeout": 600
+    }
+   }
+  },
+  {
+   "name": "nyr5k_M6",
+   "family": "ny",
+   "M": 6,
+   "eps": 0.1,
+   "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M6",
+   "start": 1,
+   "goal": 5000,
+   "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\scratchpad\\fast3_campaign\\ny_lex\\nyr5k_M6_apex_e0.1_lex.mvh",
+   "solvers": {
+    "fast2": {
+     "reps": 1,
+     "timeout": 600
+    },
+    "fast": {
+     "reps": 1,
+     "timeout": 600
+    }
+   }
+  }
+ ]
+}

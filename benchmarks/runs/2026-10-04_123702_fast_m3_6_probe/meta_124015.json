@@ -1,0 +1,187 @@
+{
+ "commit": "f0dfb1e3631c907f48a4fb66971dddbd2992d69e",
+ "fast_sha256": "649fc122748e4b6ec28889f8110968d1c55c54ff752bca8cd3d7ff5eae509010",
+ "maya_sha256": "94540e68388f6258e665d01de4ba2d36950007b514322981ad522c60ea56d691",
+ "plan_file": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\scratchpad\\fast3_campaign\\planB_probe.json",
+ "plan": {
+  "jobs": [
+   {
+    "name": "nyr5k_M4",
+    "family": "ny",
+    "M": 4,
+    "eps": 0.01,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M4",
+    "start": 1,
+    "goal": 5000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M4\\apex_e0.01.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "nyr8k_M4",
+    "family": "ny",
+    "M": 4,
+    "eps": 0.05,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr8k_M4",
+    "start": 1,
+    "goal": 8000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr8k_M4\\apex_e0.05.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "nyr5k_M5",
+    "family": "ny",
+    "M": 5,
+    "eps": 0.05,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M5",
+    "start": 1,
+    "goal": 5000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M5\\apex_e0.05.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "nyr3k_M6",
+    "family": "ny",
+    "M": 6,
+    "eps": 0.05,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr3k_M6",
+    "start": 1,
+    "goal": 3000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr3k_M6\\apex_e0.05.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "nyr5k_M6",
+    "family": "ny",
+    "M": 6,
+    "eps": 0.1,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M6",
+    "start": 1,
+    "goal": 5000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr5k_M6\\apex_e0.1.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "nyr8k_M5",
+    "family": "ny",
+    "M": 5,
+    "eps": 0.1,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr8k_M5",
+    "start": 1,
+    "goal": 8000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-jubilant-engine\\scratchpad\\inst\\nyr8k_M5\\apex_e0.1.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "bay8_M5",
+    "family": "bay",
+    "M": 5,
+    "eps": 0.1,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY8000_M5",
+    "start": 1,
+    "goal": 8000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY8000_M5\\apex_e0.1_lex.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "bay16_M4",
+    "family": "bay",
+    "M": 4,
+    "eps": 0.1,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY16000_M4",
+    "start": 1,
+    "goal": 16000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY16000_M4\\apex_e0.1_lex.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "bay8_M6",
+    "family": "bay",
+    "M": 6,
+    "eps": 0.1,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY8000_M6",
+    "start": 1,
+    "goal": 8000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY8000_M6\\apex_e0.1_lex.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "bay16_M5",
+    "family": "bay",
+    "M": 5,
+    "eps": 0.1,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY16000_M5",
+    "start": 1,
+    "goal": 16000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY16000_M5\\apex_e0.1_lex.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   },
+   {
+    "name": "bay16_M6",
+    "family": "bay",
+    "M": 6,
+    "eps": 0.1,
+    "map": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY16000_M6",
+    "start": 1,
+    "goal": 16000,
+    "mvh": "C:\\Users\\BARFE\\.copilot\\repos\\copilot-worktrees\\fast-mvh-kdt\\barfe-aicahub-vigilant-robot\\benchmarks\\runs\\2026-09-29_122346_bay_and_3d\\inputs\\BAY16000_M6\\apex_e0.1_lex.mvh",
+    "solvers": {
+     "fast": {
+      "reps": 1,
+      "timeout": 300
+     }
+    }
+   }
+  ]
+ },
+ "started": "2026-10-04 12:40:15"
+}

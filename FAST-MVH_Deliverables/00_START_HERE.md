@@ -1,5 +1,15 @@
 # FAST-MVH Deliverables Summary
 
+> **Update 2026-10-04 (current FAST).** The paper now describes the current FAST
+> algorithm (residue set R(s) + Bentley–Saxe k-d forest fallback, inline OPEN).
+> - Paper: `FAST_MVH_Research_Paper.{md,pdf}` (6 pages) + `FAST_MVH_Speedup.svg` (Figure 2).
+> - Code used: `Source_Code/FAST_MVH_Current/` (repo `src/` at commit f0dfb1e;
+>   FAST = `L_NAMOA_DR_MVH_FAST3`, FAST_C ablation = `L_NAMOA_DR_MVH_FAST`).
+> - Results: `Experimental_Results/FAST_MVH_Results.csv` (27 instances, same machine).
+> - Tools: `Experimental_Results/fast_campaign_tools/` (runner, summarizer, reference
+>   driver `maya_run.cpp`, plans; plan paths are absolute to the original machine).
+> - Sections below describe the earlier FAST2-era package and are kept for history.
+
 **Date:** 2026-09-29  
 **Status:** Complete with ongoing experiments  
 **Total Package Size:** ~450 MB (code + road networks + results)
