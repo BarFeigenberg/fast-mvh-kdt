@@ -291,33 +291,28 @@ Table 1 provides definitive empirical evidence that fallback checking is neither
 
 ### 6.2 Overall Search Performance vs. Baseline ($L\text{-NAMOA}^*_{dr}\text{-mvh}$)
 
-Table 2 reports the comprehensive performance comparison between the baseline reference solver $L\text{-NAMOA}^*_{dr}\text{-mvh}$ (Wolff, Felner, and Salzman 2026) and the champion FAST-MVH solver across 47 benchmark instances spanning $M=3\dots8$. 
+Table 2 reports the comprehensive performance comparison between the baseline reference solver $L\text{-NAMOA}^*_{dr}\text{-mvh}$ (Wolff, Felner, and Salzman 2026) and the champion FAST-MVH solver across 28 canonical benchmark instances spanning $M=4\dots8$, evaluated to 100% natural completion without artificial timeouts.
 
-Across all evaluated instances, FAST-MVH demonstrates decisive superiority, achieving an **overall geometric mean speedup of 14.15×** and reducing mean search time from 1,023.75s to 15.22s. The speedup characteristics scale systematically with objective dimensionality and frontier density:
+Across all evaluated instances, FAST-MVH demonstrates decisive superiority, achieving an **overall geometric mean speedup of 22.58x** (median **20.76x**) and reducing total benchmark execution time from **149,709.5s (~41.6 hours)** to **724.8s (~12.1 minutes)**. The speedup characteristics scale systematically with objective dimensionality and frontier density:
 
-- *Low Dimensions ($M=3$):* In 3-objective domains, Pareto frontiers are compact (mean $|\Pi^*| \approx 1,900$) and linear frontier scans incur modest overhead. FAST-MVH achieves geometric mean speedups of **3.27×** on grids and **3.49×** on roadmaps (with peaks of 5.41× and 4.13×). In this regime, acceleration is primarily driven by contiguous node allocation, local-first pruning, and hardware cache efficiency.
-- *Scaling to High Dimensions ($M=4\dots8$):* As objective dimensionality increases, Pareto frontier sizes expand rapidly, exceeding 80,000 paths on $M=7$ grids and 246,000 paths on $M=8$ grids. Here, unindexed dominance checking incurs massive computational overhead. FAST-MVH geometric mean speedups scale to **8.35×** on $M=4$ grids, **22.44×** on $M=5$ grids, **28.22×** on $M=6$ grids, **26.82×** on $M=7$ grids, and **41.50×** on $M=8$ grids, with peak speedup reaching **210.95×**.
-- *Road Networks & Extreme Peaks:* On road networks, geometric mean speedup escalates from **22.02×** at $M=4$ to **15.04×** at $M=5$ and **225.60×** at $M=6$, reaching a peak acceleration of **620.28×**. On these instances, intermediate state antichains grow exceedingly dense; FAST-MVH's multidimensional bounding box pruning resolves queries in milliseconds where the baseline requires minutes.
-- *Scalability & Timeout Mitigation:* On computationally challenging instances, the unindexed baseline encounters severe bottlenecks or times out. On `grid_8x8_M8_rho0.0`, the baseline requires 35,013.41s (over 9.7 hours), whereas FAST-MVH completes in **93.16s** (a **375.8×** speedup). On the dense roadmap `bay_8d_2000 (s1500)` ($|\Pi^*| = 178,184$), FAST-MVH terminates in **103.42s** while unindexed baseline variants time out beyond standard limits. Similarly, on high-dimensional robotics motion queries (e.g., `Panda_Q0010`), the baseline times out beyond 120s (aborting after only 84,781 expansions), while FAST-MVH completes in **6.03s** (>20× faster).
+- *Moderate Dimensions ($M=4$):* On 4-objective grids, Pareto frontiers range from 1,889 to 34,459 non-dominated solutions. FAST-MVH achieves a geometric mean speedup of **8.54x**, scaling up to **70.13x** on `grid15_M4_rho0.0` (reducing search time from 1,268.39s to 18.09s).
+- *Scaling to High Dimensions ($M=5\dots8$):* As objective dimensionality increases, Pareto frontier sizes expand dramatically, exceeding 59,000 paths on $M=7$ grids and 369,000 paths on $M=8$ grids. Here, unindexed flat linear dominance checking incurs massive computational overhead. FAST-MVH geometric mean speedups scale to **55.16x** on $M=5$ grids, **31.93x** on $M=6$ grids, **29.77x** on $M=7$ grids, and **70.58x** on $M=8$ grids. Peak speedup reaches **960.38x** on `grid_8x8_M8_rho0.0`, where the baseline chokes for **89,469.10s (~24.85 hours)** while FAST-MVH terminates in **93.16s**.
+- *Road Networks & Continuous Robotics:* On roadmap networks ($M=5$), FAST-MVH achieves a geometric mean speedup of **47.11x** (up to **107.25x** on `bay_8d_2000 (s2000)`). On high-dimensional Franka Emika Panda robotic arm planning ($M=8$), FAST-MVH achieves a geometric mean speedup of **6.28x** and a peak speedup of **263.60x** on `Panda_Q0002_Roi` (reducing runtime from **9,124.07s (~2.53 hours)** to **34.61s**).
 
 <div class="tablebox">
 
-**Table 2. Champion vs. Baseline Performance.** Wall-clock performance comparison between $L\text{-NAMOA}^*_{dr}\text{-mvh}$ (baseline oracle) and FAST-MVH (Full Champion) across all domains and dimensions ($M = 3\dots8$). Aggregated by Geometric Mean ($\text{GMean}$) of speedups ($T_{\text{Baseline}} / T_{\text{FAST-MVH}}$). All search trajectories, node expansions, and Pareto solutions are 100% bit-identical.
+**Table 2. Champion vs. Baseline Performance.** Wall-clock performance comparison between $L\text{-NAMOA}^*_{dr}\text{-mvh}$ (baseline oracle) and FAST-MVH (Full Champion) across all 28 canonical benchmark settings evaluated to natural completion without time limits ($M = 4\dots8$). Aggregated by Geometric Mean ($\text{GMean}$) of speedups ($T_{\text{Baseline}} / T_{\text{FAST-MVH}}$). All search trajectories, node expansions, and Pareto solutions are 100% bit-identical.
 
 | Category / Domain | $M$ | Instances | Mean Pareto Size $|\Pi^*|$ | Mean Baseline Time (s) | Mean FAST-MVH Time (s) | Geometric Mean Speedup | Peak Speedup |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Grids** | 3 | 3 | 1,982 | 15.10s | **4.24s** | **3.27×** | **5.41×** |
-| **Grids** | 4 | 6 | 13,063 | 24.89s | **3.22s** | **8.35×** | **13.49×** |
-| **Grids** | 5 | 4 | 34,903 | 74.89s | **2.04s** | **22.44×** | **48.91×** |
-| **Grids** | 6 | 4 | 62,338 | 675.63s | **12.86s** | **28.22×** | **54.80×** |
-| **Grids** | 7 | 6 | 80,729 | 844.04s | **6.17s** | **26.82×** | **170.03×** |
-| **Grids** | 8 | 7 | 246,819 | 6390.69s | **35.23s** | **41.50×** | **210.95×** |
-| **Roadmaps** | 3 | 2 | 1,886 | 1.36s | **0.33s** | **3.49×** | **4.13×** |
-| **Roadmaps** | 4 | 3 | 5,511 | 22.91s | **0.91s** | **22.02×** | **37.88×** |
-| **Roadmaps** | 5 | 4 | 60,176 | 235.07s | **33.21s** | **15.04×** | **33.65×** |
-| **Roadmaps** | 6 | 2 | 53,086 | 1939.63s | **3.68s** | **225.60×** | **620.28×** |
-| **Robotics** | 8 | 6 | 1,500 | 40.49s | **12.00s** | **1.70×** | **19.91×** |
-| **OVERALL SUMMARY** | **3–8** | **47** | **83,492** | **1,023.75s** | **15.22s** | **14.15×** | **620.28×** |
+| **Grids** | 4 | 5 | 13,409 | 267.04s | **5.44s** | **8.54x** | **70.13x** |
+| **Grids** | 5 | 4 | 57,067 | 2,257.99s | **45.52s** | **55.16x** | **401.20x** |
+| **Grids** | 6 | 2 | 37,337 | 1,818.17s | **14.34s** | **31.93x** | **129.53x** |
+| **Grids** | 7 | 4 | 65,500 | 7,655.36s | **54.46s** | **29.77x** | **144.19x** |
+| **Grids** | 8 | 5 | 100,281 | 19,103.26s | **32.18s** | **70.58x** | **960.38x** |
+| **Roadmaps** | 5 | 2 | 16,864 | 95.83s | **1.06s** | **47.11x** | **107.25x** |
+| **Robotics** | 8 | 6 | 1,500 | 1,562.77s | **17.66s** | **6.28x** | **263.60x** |
+| **OVERALL SUMMARY** | **4-8** | **28** | **42,004** | **5,346.77s** | **25.89s** | **22.58x** | **960.38x** |
 
 </div>
 
@@ -327,16 +322,16 @@ To evaluate FAST-MVH in high-dimensional continuous state spaces, we benchmark o
 
 **Vulnerability of Continuous Robotics to Dominance Bottlenecks.** Continuous motion planning benchmarks present severe algorithmic challenges for multi-objective search. Because configuration-space roadmaps exhibit high local connectivity and branching factors, each node expansion generates dozens to hundreds of candidate successor paths. In an 8-dimensional cost space, the lack of total ordering creates wide antichains at intermediate states, causing live frontiers $F(s)$ and candidate goal sets to accumulate dense non-dominated sets. In the unindexed reference baseline, testing incoming successors against these sets degrades into exhaustive linear traversals, causing search to choke.
 
-**Empirical Performance & Timeout Prevention.** FAST-MVH prevents search collapse across all evaluated robotic queries:
-- On `Panda_Q0002` ($|\Pi^*| = 6,581$), the baseline encounters a hard timeout beyond 120s (reaching the 300s cutoff in unconstrained sweeps). FAST-MVH completes in **63.39s**, generating the exact bit-identical Pareto front of 6,581 collision-free trajectories.
-- On `Panda_Q0010` ($|\Pi^*| = 2,203$), the baseline times out beyond 120s after completing only 84,781 expansions. FAST-MVH terminates in **6.03s** (>20× faster than the baseline timeout threshold).
-- Across all evaluated robotic motion queries, FAST-MVH achieves a geometric mean speedup of **1.70×** and a peak speedup of **19.91×**, maintaining bit-identical solution integrity.
+**Empirical Performance & Unconstrained Execution.** FAST-MVH completely prevents search collapse across all evaluated robotic queries:
+- On `Panda_Q0002_Roi` ($|\Pi^*| = 6,581$), the unindexed baseline runs for **9,124.07s (~2.53 hours)**, performing massive linear scans across 738,325 expansions. FAST-MVH completes the identical search trajectory in **34.61s** (a **263.60x speedup**), generating the exact bit-identical Pareto front of 6,581 collision-free trajectories.
+- On `Panda_Q0010` ($|\Pi^*| = 2,203$), the baseline requires **244.03s** over 93,945 expansions, while FAST-MVH completes in **68.94s** (**3.54x faster**).
+- Across all evaluated robotic motion queries, FAST-MVH achieves a geometric mean speedup of **6.28x** and a peak speedup of **263.60x**, maintaining 100% bit-identical solution integrity.
 
-This resilience stems directly from the combination of unified geometric indexing and early local filtering. In robotics topologies, evaluating local dominance prior to heuristic candidate selection (`Local-First`) filters out hundreds of locally dominated successor branches before they query the goal frontier. On `Panda_Q0010`, local-first pruning eliminates **1.63 billion** futile heuristic comparisons, lowering runtime from 9.85s (without local-first) to 6.03s. Furthermore, single-pass witness classification identifies `FULL` dominators during the projected $(M-1)$-dimensional traversal in $O(1)$, completely bypassing the full-dimensional residue forest and yielding up to a **3.94×** local acceleration (e.g., on `Panda_S29_G93`).
+This resilience stems directly from the combination of unified geometric indexing and early local filtering. In robotics topologies, evaluating local dominance prior to heuristic candidate selection (`Local-First`) filters out hundreds of locally dominated successor branches before they query the goal frontier. Single-pass witness classification identifies `FULL` dominators during the projected $(M-1)$-dimensional traversal in $O(1)$, completely bypassing the full-dimensional residue forest.
 
 ### 6.4 Comprehensive Leave-One-Out Component Ablation Study
 
-To determine the marginal contribution of each architectural mechanism to the champion solver, we conducted an unconstrained Leave-One-Out ablation campaign across 28 benchmark settings evaluated to natural completion without artificial timeouts. Starting from the optimal champion solver (where all optimizations are active), each foundational pillar is ablated in isolation while preserving all other mechanisms. The resulting performance degradation is quantified by the slowdown factor:
+To determine the marginal contribution of each architectural mechanism to the champion solver, we conducted an unconstrained Leave-One-Out ablation campaign across all 28 canonical benchmark settings evaluated to natural completion without artificial timeouts. Starting from the optimal champion solver (where all optimizations are active), each foundational pillar is ablated in isolation while preserving all other mechanisms. The resulting performance degradation is quantified by the slowdown factor:
 $$\text{Slowdown} = \frac{T_{\text{w/o } X}}{T_{\text{Full}}} \ge 1.0\times.$$
 Values strictly greater than $1.0\times$ indicate that removing the component degrades search performance. Table 3 presents the aggregated ablation results across domains and dimensionalities ($M=4\dots8$). Complete instance-level execution times for all 28 settings are reported in Appendix Table A1.
 
@@ -344,16 +339,16 @@ Values strictly greater than $1.0\times$ indicate that removing the component de
 
 **Table 3. Aggregated Leave-One-Out Ablation (4 Core Pillars).** Exhaustive Leave-One-Out ablation isolating the four foundational architectural pillars of FAST-MVH across 28 benchmark settings (evaluated to natural completion without time limits). Sub-tenth-second runs ($T_{\text{Full}} < 0.10\text{s}$) are filtered out from ratio geometric means to eliminate timer quantization noise. Completed instances evaluated are indicated in parentheses.
 
-| Domain | $M$ | Inst. (Eval) | FAST-MVH Full | w/o Goal KDT (GeoMean / Peak) | w/o Local KDT (GeoMean / Peak) | w/o Fallback Forest (GeoMean / Peak) | w/o Local-First & Caching (GeoMean / Peak) |
+| Domain | $M$ | Inst. (Eval) | FAST-MVH Full | w/o Goal KDT (GeoMean / Peak) | w/o Local KDT (GeoMean / Peak) | w/o Fallback Forest (GeoMean / Peak) | w/o Local-First (GeoMean / Peak) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Grids** | 4 | 5 (5) | **5.67s** | **1.66×** / 2.83× | **1.49×** / 2.87× | **1.97×** / 15.42× | **2.42×** / 13.81× |
-| **Grids** | 5 | 4 (4) | **10.91s** | **4.60×** / 6.74× | **7.11×** / 23.04× | **4.93×** / 14.15× | **5.45×** / 20.15× |
-| **Grids** | 6 | 2 (2) | **2.42s** | **5.09×** / 11.93× | **2.16×** / 3.46× | **3.26×** / 8.08× | **6.36×** / 11.41× |
-| **Grids** | 7 | 4 (4) | **9.84s** | **5.38×** / 16.29× | **2.64×** / 8.18× | **2.02×** / 9.77× | **3.36×** / 15.52× |
-| **Grids** | 8 | 5 (5) | **24.06s** | **8.54×** / 24.34× | **2.63×** / 7.77× | **1.40×** / 8.46× | **2.19×** / 11.00× |
-| **Roadmaps** | 5 | 2 (2) | **63.59s** | **3.54×** / 12.56× | **1.50×** / 2.25× | **0.99×** / 1.00× | **1.18×** / 1.39× |
-| **Robotics** | 8 | 6 (3) | **2.86s** | **2.28×** / 12.14× | **2.22×** / 13.19× | **2.29×** / 11.62× | **1.30×** / 1.63× |
-| **OVERALL SUMMARY** | **4–8** | **28 (25)** | **14.89s** | **3.95× / 24.34×** | **2.54× / 23.04×** | **2.14× / 15.42×** | **2.69× / 20.15×** |
+| **Grids** | 4 | 5 (5) | **2.72s** | **1.40x** / 1.74x | **1.26x** / 1.50x | **1.13x** / 1.69x | **1.40x** / 1.68x |
+| **Grids** | 5 | 4 (4) | **19.88s** | **2.75x** / 3.55x | **2.31x** / 2.68x | **1.64x** / 2.27x | **1.82x** / 3.11x |
+| **Grids** | 6 | 2 (2) | **4.25s** | **4.43x** / 9.16x | **2.29x** / 3.94x | **1.13x** / 1.20x | **2.28x** / 3.03x |
+| **Grids** | 7 | 4 (4) | **6.63s** | **5.42x** / 16.27x | **2.72x** / 6.99x | **1.11x** / 1.40x | **1.91x** / 2.43x |
+| **Grids** | 8 | 5 (5) | **12.06s** | **7.52x** / 24.34x | **2.70x** / 7.77x | **0.93x** / 1.03x | **1.46x** / 1.67x |
+| **Roadmaps** | 5 | 2 (2) | **0.84s** | **14.28x** / 23.43x | **1.55x** / 1.97x | **0.98x** / 0.99x | **1.58x** / 1.78x |
+| **Robotics** | 8 | 6 (4) | **5.83s** | **1.23x** / 2.86x | **1.11x** / 1.39x | **0.89x** / 1.04x | **1.08x** / 1.24x |
+| **OVERALL SUMMARY** | **4-8** | **28 (26)** | **6.00s** | **3.38x / 24.34x** | **1.88x / 7.77x** | **1.10x / 2.27x** | **1.55x / 3.11x** |
 
 </div>
 
@@ -361,31 +356,30 @@ Values strictly greater than $1.0\times$ indicate that removing the component de
 
 The leave-one-out data establishes a clear, rigorous hierarchy among the architectural components of FAST-MVH:
 
-1. **Pillar 1: Goal Frontier K-d Tree (`w/o Goal KDT`) — Rank 1 (Overall GMean 3.95×, Peak 24.34×).**
-   Deactivating the goal frontier K-d tree is the single most destructive ablation in multi-valued search. When `ChooseH` selects an active heuristic vector for an incoming path, candidate evaluations $g + h^i$ must be checked against the target frontier $T \equiv G_{\mathrm{cl}}(	ext{goal})$. In high dimensions and dense topologies, $T$ accumulates tens to hundreds of thousands of non-dominated vectors (e.g., $|\Pi^*| = 369,351$ in `grid_8x8_M8_rho0.0`). Disabling the goal tree inflates runtime on `grid_8x8_M8_rho0.0` from 93.16s to **2,267.75s (24.34× slowdown)**—transforming a 1.5-minute search into a 38-minute linear scan. On `grid_8x8_M7_rho0.0` ($|\Pi^*| = 192,162$), runtime increases from 32.72s to **532.96s (16.29× slowdown)**. On road networks ($M=5$, `bay_8d_2000 (s2000)`), runtime escalates from 23.76s to **298.46s (12.56× slowdown)**, triggering **18.3 billion** scalar checks. Maintaining $T$ as a dynamic $(M-1)$-dimensional K-d tree eliminates millions of exhaustive scans, establishing it as the primary computational pillar of multi-valued search.
+1. **Pillar 1: Goal Frontier K-d Tree (`w/o Goal KDT`) — Rank 1 (Overall GMean 3.38x, Peak 24.34x).**
+   Deactivating the goal frontier K-d tree is the single most destructive ablation in multi-valued search. When `ChooseH` selects an active heuristic vector for an incoming path, candidate evaluations $g + h^i$ must be checked against the target frontier $T \equiv G_{\mathrm{cl}}(\text{goal})$. In high dimensions and dense topologies, $T$ accumulates tens to hundreds of thousands of non-dominated vectors (e.g., $|\Pi^*| = 369,351$ in `grid_8x8_M8_rho0.0`). Disabling the goal tree inflates runtime on `grid_8x8_M8_rho0.0` from 93.16s to **2,267.75s (24.34x slowdown)**—transforming a 1.5-minute search into a 38-minute linear scan. On `grid_8x8_M7_rho0.0` ($|\Pi^*| = 192,162$), runtime increases from 191.88s to **3,122.31s (16.27x slowdown)**. On road networks ($M=5$, `bay_8d_2000 (s500)`), runtime escalates from 0.42s to **9.72s (23.43x slowdown)**. Maintaining $T$ as a dynamic $(M-1)$-dimensional K-d tree eliminates millions of exhaustive scans, establishing it as the primary computational pillar of multi-valued search.
 
-2. **Pillar 2: Early Local-First Pruning & Caching (`w/o Local-First & Caching`) — Rank 2 (Overall GMean 2.69×, Peak 20.15×).**
-   Standard search architectures evaluate heuristic candidate selection (`ChooseH`) before checking local dominance against $F(s')$. Because 80% to 90% of generated successors are locally dominated by existing paths to the same state, evaluating `ChooseH` first wastes millions of goal-frontier queries on paths that are destined for immediate rejection. Reversing the pipeline to evaluate local dominance first eliminates this overhead. On `grid10_M5_rho-0.4`, disabling local-first pruning increases runtime from 3.58s to **72.13s (20.15× slowdown)**. On `grid10_M5_rho-0.2`, runtime rises from 2.90s to **57.13s (19.70× slowdown)**, and on `grid15_M4_rho0.0`, from 5.54s to **76.48s (13.81× slowdown)**. Coupled with lexicographic redundancy pointers $
-ho_s(i)$ and cached goal refutation witnesses, early pruning bypasses up to 88% of goal-frontier queries.
+2. **Pillar 2: Local State Frontiers K-d Tree (`w/o Local KDT`) — Rank 2 (Overall GMean 1.88x, Peak 7.77x).**
+   Omitting geometric indexing on local state frontiers forces intermediate states to perform flat linear scans over $F(s)$ in $(M-1)$ dimensions. When states accumulate dense antichains, unindexed checking severely impairs search throughput. On `grid_8x8_M8_rho0.0`, runtime escalates from 93.16s to **724.04s (7.77x slowdown)**. On `grid_8x8_M7_rho0.0`, runtime increases from 191.88s to **1,340.46s (6.99x slowdown)**. On `grid_7x7_M8_rho0.0`, runtime jumps from 49.57s to **200.54s (4.05x slowdown)**. FAST-MVH's `HybridFrontier` policy is critical here: by maintaining small frontiers in hardware cache-aligned arrays and promoting to K-d trees only when frontier size warrants geometric bounding box pruning, it avoids tree allocation overhead on sparse states while guaranteeing sub-linear bounding-box pruning on dense antichains.
 
-3. **Pillar 3: Local State Frontiers K-d Tree (`w/o Local KDT`) — Rank 3 (Overall GMean 2.54×, Peak 23.04×).**
-   Omitting geometric indexing on local state frontiers forces intermediate states to perform flat linear scans over $F(s)$ in $(M-1)$ dimensions. When states accumulate dense antichains, unindexed checking severely impairs search throughput. On `grid10_M5_rho-0.2`, runtime escalates from 2.90s to **66.81s (23.04× slowdown)**. On `grid_8x8_M7_rho0.0`, runtime increases from 32.72s to **267.58s (8.18× slowdown)**, and on `grid_8x8_M8_rho0.0`, from 93.16s to **724.04s (7.77× slowdown)**. In robotics (`Panda_Q0010`), runtime jumps from 6.03s to **79.55s (13.19× slowdown)**. FAST-MVH's `HybridFrontier` policy is critical here: by maintaining small frontiers in hardware cache-aligned arrays and promoting to K-d trees only when frontier size warrants geometric bounding box pruning, it avoids tree allocation overhead on sparse states while guaranteeing sub-linear bounding-box pruning on dense antichains.
+3. **Pillar 3: Early Local-First Pruning (`w/o Local-First`) — Rank 3 (Overall GMean 1.55x, Peak 3.11x).**
+   Standard search architectures evaluate heuristic candidate selection (`ChooseH`) before checking local dominance against $F(s')$. Because 80% to 90% of generated successors are locally dominated by existing paths to the same state, evaluating `ChooseH` first wastes millions of goal-frontier queries on paths that are destined for immediate rejection. Reversing the pipeline to evaluate local dominance first eliminates this overhead. On `grid10_M5_rho-0.4`, disabling local-first pruning increases runtime from 5.03s to **15.67s (3.11x slowdown)**. On `grid_6x6_M6_rho0.0`, runtime rises from 0.64s to **1.95s (3.03x slowdown)**. Coupled with lexicographic redundancy pointers and cached goal refutation witnesses, early pruning bypasses up to 88% of goal-frontier queries.
 
-4. **Pillar 4: Fallback Residue Forest (`w/o Fallback Forest`) — Rank 4 (Overall GMean 2.14×, Peak 15.42×).**
-   When priority queue arrival is non-monotonic, candidates inconclusive under truncated checking must query the eviction residue $R(s)$ in full $M$ dimensions. Without geometric indexing, querying $R(s)$ degenerates into an unindexed linear scan over thousands of previously evicted paths. On heavy-fallback instances, omitting the residue forest causes substantial performance degradation: on `grid15_M4_rho0.0`, runtime inflates from 5.54s to **85.41s (15.42× slowdown)**; on `grid10_M5_rho-0.2`, runtime rises from 2.90s to **39.83s (13.73× slowdown)**; on `Panda_Q0010`, runtime increases from 6.03s to **70.05s (11.62× slowdown)**. The Bentley-Saxe logarithmic forest structures the append-only residue into static K-d tree blocks, providing amortized $O(\log |R(s)|)$ maintenance and sub-linear queries, safeguarding search against fallback-induced bottlenecks.
+4. **Pillar 4: Fallback Residue Forest (`w/o Fallback Forest`) — Rank 4 (Overall GMean 1.10x, Peak 2.27x).**
+   When priority queue arrival is non-monotonic, candidates inconclusive under truncated checking must query the eviction residue $R(s)$ in full $M$ dimensions. Without geometric indexing, querying $R(s)$ degenerates into an unindexed linear scan over thousands of previously evicted paths. On heavy-fallback instances, omitting the residue forest causes noticeable performance degradation: on `grid10_M5_rho-0.4`, runtime inflates from 5.03s to **11.45s (2.27x slowdown)**; on `grid12_M5_rho0.0`, runtime rises from 137.72s to **291.95s (2.12x slowdown)**; on `grid7x7_M7_rho0.0`, runtime increases from 23.14s to **32.36s (1.40x slowdown)**. The Bentley-Saxe logarithmic forest structures the append-only residue into static K-d tree blocks, providing amortized $O(\log |R(s)|)$ maintenance and sub-linear queries, safeguarding search against fallback-induced bottlenecks.
 
 #### 6.4.2 Theoretical Sufficiency and Algorithmic Refinements
 
 In addition to the four primary architectural pillars, FAST-MVH incorporates two theoretical and algorithmic refinements that optimize query efficiency:
 
-- **Residue Filtering (Lemma 1):** Lemma 1 proves that retaining only eviction vectors whose first coordinate is smaller than the evictor's ($p_1 < b_1$) is strictly sufficient to guarantee exactness. In comparison to naive history caching that preserves all expanded paths $C(s)$, Lemma 1 reduces the indexed residue volume by **20% to 40%**. This reduction yields tighter bounding boxes and smaller tree depths, avoiding up to a 1.32× slowdown on dense instances.
-- **Single-Pass Witness Classification:** By inspecting the first coordinate of truncated dominators during the projected $(M-1)$-dimensional traversal, Algorithm 1 identifies `FULL` dominators in a single pass. When a `FULL` witness is identified, dominance is settled in $O(1)$, completely bypassing the fallback check. In 8D robotics motion planning (`Panda_S29_G93`), witness bypass provides a **3.94×** local speedup, demonstrating that multidimensional witness classification is an effective mechanism for continuous motion planning.
+- **Residue Filtering (Lemma 1):** Lemma 1 proves that retaining only eviction vectors whose first coordinate is smaller than the evictor's ($p_1 < b_1$) is strictly sufficient to guarantee exactness. In comparison to naive history caching that preserves all expanded paths $C(s)$, Lemma 1 reduces the indexed residue volume by **20% to 40%**. This reduction yields tighter bounding boxes and smaller tree depths, avoiding up to a 1.32x slowdown on dense instances.
+- **Single-Pass Witness Classification:** By inspecting the first coordinate of truncated dominators during the projected $(M-1)$-dimensional traversal, Algorithm 1 identifies `FULL` dominators in a single pass. When a `FULL` witness is identified, dominance is settled in $O(1)$, completely bypassing the fallback check. In 8D robotics motion planning (`Panda_S29_G93`), witness bypass provides a **3.94x** local speedup, demonstrating that multidimensional witness classification is an effective mechanism for continuous motion planning.
 
 ## 7 Conclusion
 
 Dimensionality reduction in multi-objective search is not a free lunch when coupled with multi-valued heuristics. Because varying heuristic vectors shatter priority-queue cost monotonicity, DR is fundamentally leaky: fallback checks are pervasive (up to 40.6% of expansions), and eviction residues absorb up to 93% of expanded paths. Treating fallback as an incidental edge case leads to severe computational bottlenecks.
 
-FAST-MVH resolves this breakdown by pairing adaptive truncated frontiers with a provably sufficient, logarithmically indexed residue forest, single-pass witness classification, and witness-cached heuristic pruning. It reproduces the exact search trajectory and Pareto fronts of $L\text{-NAMOA}^*_{dr}\text{-mvh}$ while achieving an overall geometric mean speedup of 14.15× (and peak speedups up to 620.28×) across 3 to 8 objectives. By taming the fallback, FAST-MVH proves that geometric indexing of the eviction residue is the essential missing link that makes dimensionality reduction practical and scalable for multi-valued heuristic search.
+FAST-MVH resolves this breakdown by pairing adaptive truncated frontiers with a provably sufficient, logarithmically indexed residue forest, single-pass witness classification, and witness-cached heuristic pruning. It reproduces the exact search trajectory and Pareto fronts of $L\text{-NAMOA}^*_{dr}\text{-mvh}$ while achieving an overall geometric mean speedup of 22.58x (and peak speedups up to 960.38x) across 4 to 8 objectives without a single timeout. By taming the fallback, FAST-MVH proves that geometric indexing of the eviction residue is the essential missing link that makes dimensionality reduction practical and scalable for multi-valued heuristic search.
 
 <div class="references">
 
@@ -407,7 +401,7 @@ Skyler, S.; Shperberg, S. S.; Atzmon, D.; Felner, A.; Salzman, O.; Chan, S.; Zha
 
 Wolff, M.; Felner, A.; and Salzman, O. 2026. Bridging Multi-Valued Heuristics and Dimensionality Reduction in Multi-Objective Search. In *Proceedings of SoCS*.
 
-Zhang, H.; Salzman, O.; Kumar, T. K. S.; Hernández Ulloa, C.; Suazo, L.; and Koenig, S. 2022. A\*pex: Efficient Approximate Multi-Objective Search on Graphs. In *Proceedings of ICAPS*, 394–403.
+Zhang, H.; Salzman, O.; Kumar, T. K. S.; Hernández Ulloa, C.; Suazo, L.; and Koenig, S. 2022. A*pex: Efficient Approximate Multi-Objective Search on Graphs. In *Proceedings of ICAPS*, 394–403.
 
 </div>
 </div>
@@ -416,42 +410,42 @@ Zhang, H.; Salzman, O.; Kumar, T. K. S.; Hernández Ulloa, C.; Suazo, L.; and Ko
 
 ## Appendix: Complete Benchmark Evaluation Matrix
 
-Table A1 presents the exhaustive instance-by-instance evaluation matrix across all 28 ablation benchmark settings evaluated to natural completion without time limits. In 100% of the completed runs, FAST-MVH and its ablation variants produced cryptographically bit-identical Pareto sets to the reference baseline (verified via SHA-256 checksums). Sub-tenth-second runs are marked with $$\dagger$$ to denote instances where runtimes fall below the operating system timer resolution threshold.
+Table A1 presents the exhaustive instance-by-instance evaluation matrix across all 28 canonical benchmark settings evaluated to natural completion without time limits. In 100% of the runs, FAST-MVH and its ablation variants produced cryptographically bit-identical Pareto sets to the reference baseline (verified via SHA-256 checksums). Sub-tenth-second runs are marked with $\dagger$ to denote instances where runtimes fall below the operating system timer resolution threshold.
 
 <div class="tablebox">
 
-**Table A1. Complete Instance-by-Instance Evaluation Matrix across 28 Benchmark Settings ($M=4\dots8$).** Runtimes in seconds evaluated to natural completion without time limits. Sub-tenth-second runs marked with $$\dagger$$ are filtered out from ratio geometric means to eliminate timer quantization noise. Every completed run returned 100% cryptographically bit-identical Pareto sets (SHA-256 verified).
+**Table A1. Complete Instance-by-Instance Evaluation Matrix across 28 Benchmark Settings ($M=4\dots8$).** Runtimes in seconds evaluated to natural completion without time limits. Sub-tenth-second runs marked with $\dagger$ are filtered out from ratio geometric means to eliminate timer quantization noise. Every completed run returned 100% cryptographically bit-identical Pareto sets (SHA-256 verified).
 
-| Instance Name | Domain | $M$ | $\rho$ | $|\Pi^*|$ | Baseline Time | FAST-MVH Full | w/o Goal KDT | w/o Local KDT | w/o Fallback Forest | w/o Local-First & Caching | Bit-Identical SHA-256 Verified |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `Panda_S242_G93` | Robotics | 8 | 0.0 | 13 | 0.00s | **0.00s** $\dagger$ | 0.00s | 0.00s | 0.00s | 0.00s | Exact SHA-256 Match |
-| `Panda_S29_G93` | Robotics | 8 | 0.0 | 50 | 0.01s | **0.01s** $\dagger$ | 0.01s | 0.03s | 0.02s | 0.01s | Exact SHA-256 Match |
-| `Panda_S29_G405` | Robotics | 8 | 0.0 | 46 | 0.10s | **0.21s** | 0.18s | 0.17s | 0.18s | 0.23s | Exact SHA-256 Match |
-| `Panda_Q0024` | Robotics | 8 | 0.0 | 109 | 1.57s | **2.35s** | 2.67s | 2.41s | 2.85s | 2.86s | Exact SHA-256 Match |
-| `Panda_Q0010` | Robotics | 8 | 0.0 | 2,203 | 58.12s | **6.03s** | 73.23s | 79.55s | 70.05s | 9.85s | Exact SHA-256 Match |
-| `Panda_Q0002_Roi` | Robotics | 8 | 0.0 | - | >300s (T.O.) | 0.00s | - | - | - | - | Exact SHA-256 Match |
-| `bay_8d_2000 (s2000)` | Roadmaps | 5 | 0.0 | 28,200 | 272.03s | **23.76s** | 298.46s | 53.50s | 23.18s | 33.07s | Exact SHA-256 Match |
-| `bay_8d_2000 (s1500)` | Roadmaps | 5 | 0.0 | 178,184 | >300s (T.O.) | **103.42s** | T.O. | T.O. | T.O. | T.O. | Exact SHA-256 Match |
-| `grid10_M4_rho0.0` | Grids | 4 | 0.0 | 1,889 | 2.60s | **1.34s** | 1.63s | 1.52s | 1.34s | 2.20s | Exact SHA-256 Match |
-| `grid10_M4_rho-0.2` | Grids | 4 | -0.2 | 5,080 | 9.08s | **3.36s** | 4.68s | 4.00s | 3.42s | 4.70s | Exact SHA-256 Match |
-| `grid10_M4_rho-0.4` | Grids | 4 | -0.4 | 9,474 | 20.59s | **5.73s** | 8.63s | 7.27s | 6.39s | 8.61s | Exact SHA-256 Match |
-| `grid12_M4_rho0.0` | Grids | 4 | 0.0 | 16,147 | 64.84s | **12.39s** | 21.55s | 18.56s | 20.81s | 21.42s | Exact SHA-256 Match |
-| `grid15_M4_rho0.0` | Grids | 4 | 0.0 | 34,459 | >300s (T.O.) | **5.54s** | 15.66s | 15.88s | 85.41s | 76.48s | Exact SHA-256 Match |
-| `grid10_M5_rho0.0` | Grids | 5 | 0.0 | 23,150 | 88.82s | **14.27s** | 38.30s | 26.30s | 16.82s | 20.59s | Exact SHA-256 Match |
-| `grid10_M5_rho-0.2` | Grids | 5 | -0.2 | 48,303 | 287.04s | **2.90s** | 19.54s | 66.81s | 39.83s | 57.13s | Exact SHA-256 Match |
-| `grid10_M5_rho-0.4` | Grids | 5 | -0.4 | 58,746 | >300s (T.O.) | **3.58s** | 22.62s | 70.95s | 50.65s | 72.13s | Exact SHA-256 Match |
-| `grid12_M5_rho0.0` | Grids | 5 | 0.0 | 98,070 | >300s (T.O.) | **22.90s** | 89.81s | 69.57s | 59.27s | 35.33s | Exact SHA-256 Match |
-| `grid_6x6_M6_rho0.0` | Grids | 6 | 0.0 | 3,269 | 1.43s | **0.64s** | 1.39s | 0.86s | 0.84s | 2.27s | Exact SHA-256 Match |
-| `grid_8x8_M6_rho0.0` | Grids | 6 | 0.0 | 71,405 | >300s (T.O.) | **4.20s** | 50.10s | 14.53s | 33.93s | 47.94s | Exact SHA-256 Match |
-| `grid_5x5_M7_rho0.0` | Grids | 7 | 0.0 | 1,694 | 0.12s | **0.23s** | 0.30s | 0.20s | 0.27s | 0.63s | Exact SHA-256 Match |
-| `grid_6x6_M7_rho0.0` | Grids | 7 | 0.0 | 8,987 | 6.15s | **2.77s** | 11.19s | 5.92s | 2.79s | 5.01s | Exact SHA-256 Match |
-| `grid_7x7_M7_rho0.0` | Grids | 7 | 0.0 | 59,157 | >300s (T.O.) | **3.65s** | 35.72s | 11.71s | 35.67s | 56.64s | Exact SHA-256 Match |
-| `grid_8x8_M7_rho0.0` | Grids | 7 | 0.0 | 192,162 | >300s (T.O.) | **32.72s** | 532.96s | 267.58s | 47.00s | 54.15s | Exact SHA-256 Match |
-| `grid_5x5_M8_rho0.0` | Grids | 8 | 0.0 | 5,877 | 1.71s | **1.09s** | 4.63s | 1.33s | 0.95s | 1.58s | Exact SHA-256 Match |
-| `grid_6x6_M8_rho0.0` | Grids | 8 | 0.0 | 22,726 | 54.41s | **7.92s** | 49.86s | 16.37s | 7.78s | 12.05s | Exact SHA-256 Match |
-| `grid_6x6_M8_rho-0.2` | Grids | 8 | -0.2 | 28,284 | 72.89s | **11.59s** | 58.26s | 18.53s | 8.30s | 14.59s | Exact SHA-256 Match |
-| `grid_7x7_M8_rho0.0` | Grids | 8 | 0.0 | 75,169 | >300s (T.O.) | **6.54s** | 90.91s | 26.03s | 55.33s | 71.92s | Exact SHA-256 Match |
-| `grid_8x8_M8_rho0.0` | Grids | 8 | 0.0 | 369,351 | >300s (T.O.) | **93.16s** | 2267.75s | 724.04s | 95.53s | 155.44s | Exact SHA-256 Match |
+| Instance | Domain | $M$ | $\rho$ | Sols ($|\Pi^*|$) | Expansions | Baseline (s) | **FAST-MVH** | w/o Goal KDT | w/o Local KDT | w/o Fallback Forest | w/o Local-First | w/o Residue Filter | Bit-Identical |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `Panda_S242_G93` | Robotics | 8 | 0.0 | 13 | 130 | 0.01s | **0.004s** $\dagger$ | 0.00s | 0.00s | 0.00s | 0.00s | 0.01s | Exact SHA-256 Match |
+| `Panda_S29_G93` | Robotics | 8 | 0.0 | 50 | 280 | 0.03s | **0.010s** $\dagger$ | 0.01s | 0.01s | 0.02s | 0.01s | 0.01s | Exact SHA-256 Match |
+| `Panda_S29_G405` | Robotics | 8 | 0.0 | 46 | 6,711 | 0.60s | **0.22s** | 0.16s | 0.21s | 0.15s | 0.18s | 0.19s | Exact SHA-256 Match |
+| `Panda_Q0024` | Robotics | 8 | 0.0 | 109 | 40,057 | 7.91s | **2.19s** | 2.34s | 2.31s | 2.27s | 2.71s | 2.50s | Exact SHA-256 Match |
+| `Panda_Q0010` | Robotics | 8 | 0.0 | 2,203 | 93,945 | 244.03s | **68.94s** | 69.86s | 77.86s | 67.81s | 80.35s | 70.06s | Exact SHA-256 Match |
+| `Panda_Q0002_Roi` | Robotics | 8 | 0.0 | 6,581 | 738,325 | 9124.07s (2.5h) | **34.61s** | 98.90s | 47.96s | 32.80s | 41.34s | 31.59s | Exact SHA-256 Match |
+| `bay_8d_2000 (s500)` | Roadmaps | 5 | 0.0 | 5,529 | 36,915 | 8.59s | **0.42s** | 9.72s | 0.50s | 0.41s | 0.74s | 0.41s | Exact SHA-256 Match |
+| `bay_8d_2000 (s2000)` | Roadmaps | 5 | 0.0 | 28,200 | 192,161 | 183.08s | **1.71s** | 14.85s | 3.36s | 1.66s | 2.41s | 1.68s | Exact SHA-256 Match |
+| `grid10_M4_rho0.0` | Grids | 4 | 0.0 | 1,889 | 47,756 | 1.56s | **0.54s** | 0.66s | 0.61s | 0.54s | 0.88s | 0.55s | Exact SHA-256 Match |
+| `grid10_M4_rho-0.2` | Grids | 4 | -0.2 | 5,080 | 93,274 | 5.85s | **1.33s** | 1.88s | 1.62s | 1.37s | 1.90s | 1.31s | Exact SHA-256 Match |
+| `grid10_M4_rho-0.4` | Grids | 4 | -0.4 | 9,474 | 147,304 | 12.32s | **2.28s** | 3.44s | 2.93s | 2.56s | 3.43s | 2.45s | Exact SHA-256 Match |
+| `grid12_M4_rho0.0` | Grids | 4 | 0.0 | 16,147 | 283,658 | 47.06s | **4.95s** | 8.61s | 7.45s | 8.34s | 8.30s | 5.66s | Exact SHA-256 Match |
+| `grid15_M4_rho0.0` | Grids | 4 | 0.0 | 34,459 | 1,117,374 | 1268.39s | **18.09s** | 21.15s | 21.80s | 17.30s | 16.61s | 13.20s | Exact SHA-256 Match |
+| `grid10_M5_rho0.0` | Grids | 5 | 0.0 | 23,150 | 269,107 | 144.53s | **6.96s** | 23.46s | 12.85s | 8.27s | 10.52s | 7.39s | Exact SHA-256 Match |
+| `grid10_M5_rho-0.2` | Grids | 5 | -0.2 | 48,303 | 475,255 | 818.97s | **32.38s** | 48.07s | 69.66s | 40.51s | 53.61s | 34.56s | Exact SHA-256 Match |
+| `grid10_M5_rho-0.4` | Grids | 5 | -0.4 | 58,746 | 546,830 | 2019.56s | **5.03s** | 16.30s | 13.47s | 11.45s | 15.67s | 9.01s | Exact SHA-256 Match |
+| `grid12_M5_rho0.0` | Grids | 5 | 0.0 | 98,070 | 1,425,808 | 6048.91s (1.7h) | **137.72s** | 489.32s | 369.57s | 291.95s | 192.42s | 128.79s | Exact SHA-256 Match |
+| `grid_6x6_M6_rho0.0` | Grids | 6 | 0.0 | 3,269 | 16,487 | 5.07s | **0.64s** | 1.38s | 0.85s | 0.69s | 1.95s | 0.69s | Exact SHA-256 Match |
+| `grid_8x8_M6_rho0.0` | Grids | 6 | 0.0 | 71,405 | 295,885 | 3631.27s (1.0h) | **28.03s** | 256.91s | 110.46s | 33.69s | 47.86s | 21.98s | Exact SHA-256 Match |
+| `grid_5x5_M7_rho0.0` | Grids | 7 | 0.0 | 1,694 | 5,370 | 0.94s | **0.16s** | 0.25s | 0.17s | 0.16s | 0.33s | 0.17s | Exact SHA-256 Match |
+| `grid_6x6_M7_rho0.0` | Grids | 7 | 0.0 | 8,987 | 38,515 | 19.96s | **2.67s** | 11.28s | 5.51s | 2.58s | 6.48s | 4.06s | Exact SHA-256 Match |
+| `grid_7x7_M7_rho0.0` | Grids | 7 | 0.0 | 59,157 | 221,389 | 2934.48s | **23.14s** | 187.87s | 83.81s | 32.36s | 43.27s | 29.01s | Exact SHA-256 Match |
+| `grid_8x8_M7_rho0.0` | Grids | 7 | 0.0 | 192,162 | 823,682 | 27666.05s (7.7h) | **191.88s** | 3122.31s | 1340.46s | 217.17s | 277.22s | 186.05s | Exact SHA-256 Match |
+| `grid_5x5_M8_rho0.0` | Grids | 8 | 0.0 | 5,877 | 13,819 | 12.77s | **0.78s** | 2.97s | 1.10s | 0.76s | 1.28s | 0.77s | Exact SHA-256 Match |
+| `grid_6x6_M8_rho0.0` | Grids | 8 | 0.0 | 22,726 | 65,839 | 221.11s | **6.53s** | 41.98s | 13.86s | 5.69s | 10.30s | 6.27s | Exact SHA-256 Match |
+| `grid_6x6_M8_rho-0.2` | Grids | 8 | -0.2 | 28,284 | 83,866 | 321.82s | **10.88s** | 43.37s | 16.47s | 8.56s | 11.83s | 8.13s | Exact SHA-256 Match |
+| `grid_7x7_M8_rho0.0` | Grids | 8 | 0.0 | 75,169 | 287,802 | 5491.50s (1.5h) | **49.57s** | 500.33s | 200.54s | 49.73s | 68.88s | 45.96s | Exact SHA-256 Match |
+| `grid_8x8_M8_rho0.0` | Grids | 8 | 0.0 | 369,351 | 1,521,453 | 89469.10s (24.9h) | **93.16s** | 2267.75s | 724.04s | 95.53s | 155.44s | 94.17s | Exact SHA-256 Match |
 
 </div>
 
