@@ -1,0 +1,13 @@
+domain,instance,map_dir,start,goal,M,rho,eps,mvh_path,fast2_time_s,fast_time_s,fast2_sols,fast2_exp,fast_exp,fast2_cmpfull,fast_cmpfull,fast2_cmpchk,fast2_cmpupd
+ROAD_BAY,bay_800_5d,scratchpad/maps/bay_8d_800,800,1,5,none,0.1,scratchpad/maps/bay_8d_800/apex_5d_0.1.mvh,0.4781,0.4826,7617,34885,34885,0,284206,6336479,1220946
+ROAD_BAY,bay_800_6d,scratchpad/maps/bay_8d_800,800,1,6,none,0.1,scratchpad/maps/bay_8d_800/apex_6d_0.1.mvh,8.3893,8.2753,94886,352012,352012,2092282,40662904,90200822,14053302
+GRID_APEX,grid_n8_m6_rho-0.2,scratchpad/grids/grid_n8_m6_rho-0.2,1,64,6,-0.2,0.05,scratchpad/grids/grid_n8_m6_rho-0.2/apex_0.05.mvh,8.2459,11.4187,104480,293896,293896,277487335,1190728176,54224813,12588234
+GRID_APEX,grid_n7_m7_rho-0.2,scratchpad/grids/grid_n7_m7_rho-0.2,1,49,7,-0.2,0.05,scratchpad/grids/grid_n7_m7_rho-0.2/apex_0.05.mvh,2.0056,2.3041,32643,91704,91704,14253902,113925977,18613666,4508796
+GRID_APEX,grid_n7_m7_rho-0.4,scratchpad/grids/grid_n7_m7_rho-0.4,1,49,7,-0.4,0.05,scratchpad/grids/grid_n7_m7_rho-0.4/apex_0.05.mvh,3.5171,4.3011,49884,132959,132959,37595701,288230927,26939801,6439059
+GRID_APEX,grid_n8_m7_rho-0.2,scratchpad/grids/grid_n8_m7_rho-0.2,1,64,7,-0.2,0.05,scratchpad/grids/grid_n8_m7_rho-0.2/apex_0.05.mvh,13.2402,17.081,124943,373533,373533,264202027,1344621310,91811394,21104988
+GRID_APEX,grid_n6_m8_rho-0.2,scratchpad/grids/grid_n6_m8_rho-0.2,1,36,8,-0.2,0.05,scratchpad/grids/grid_n6_m8_rho-0.2/apex_0.05.mvh,2.513,2.7912,47079,99244,99244,97372215,220248133,18654091,6055301
+GRID_APEX,grid_n7_m8_rho-0.2,scratchpad/grids/grid_n7_m8_rho-0.2,1,49,8,-0.2,0.05,scratchpad/grids/grid_n7_m8_rho-0.2/apex_0.05.mvh,20.7305,35.068,175239,445827,445827,1356354060,5164189040,122994951,35939536
+GRID_APEX,grid_8x8_m8_rho-0.2,scratchpad/grids/grid_8x8_m8_rho-0.2,1,64,8,-0.2,0.05,scratchpad/grids/grid_8x8_m8_rho-0.2/apex_0.05.mvh,1197.7618,9638.8392,1082326,3092096,3092096,59317871622,311457391449,1412632831,515146822
+GRID_APEX,grid_8x8_m8_rho-0.4,scratchpad/grids/grid_8x8_m8_rho-0.4,1,64,8,-0.4,0.05,scratchpad/grids/grid_8x8_m8_rho-0.4/apex_0.05.mvh,217.9154,416.6089,366205,1033695,1033695,1286577683,6481334718,360708021,111588809
+GRID_APEX,grid_9x9_m7_rho0.0,scratchpad/grids/grid_9x9_m7_rho0.0,1,81,7,0.0,0.05,scratchpad/grids/grid_9x9_m7_rho0.0/apex_0.05.mvh,359.0082,663.9339,416597,1305173,1305173,4987844231,19397048677,375419914,95199480
+GRID_APEX,grid_9x9_m7_rho-0.4,scratchpad/grids/grid_9x9_m7_rho-0.4,1,81,7,-0.4,0.05,scratchpad/grids/grid_9x9_m7_rho-0.4/apex_0.05.mvh,145.1816,348.4235,266224,815838,815838,1956531752,9712144953,197781991,51476823

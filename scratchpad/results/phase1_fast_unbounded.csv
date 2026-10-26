@@ -1,0 +1,3 @@
+timestamp,domain,instance,M,rho,eps,fast2_time_s,fast_time_s,fast2_sols,fast2_exp,fast_exp,fast2_cmpfull,fast_cmpfull,fast2_cmpchk,fast2_cmpupd,mvh_path
+2026-10-02 00:29:41,GRID_APEX,grid_n7_m7_rho-0.4,7,-0.4,0.05,3.5612,4.301,49884,132959,132959,37595701,288230927,26939801,6439059,scratchpad/grids/grid_n7_m7_rho-0.4/apex_0.05.mvh
+2026-10-02 00:32:47,GRID_APEX,grid_n8_m8_rho0.0,8,0.0,0.05,73.2568,112.7449,434088,1719436,1719436,516549,6086066069,617908125,183135703,scratchpad/grids/grid_n8_m8_rho0.0/apex_0.05.mvh

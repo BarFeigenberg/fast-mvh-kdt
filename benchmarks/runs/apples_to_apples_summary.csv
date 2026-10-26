@@ -1,0 +1,4 @@
+algorithm,instance,num_objectives,num_solutions,wall_clock_s,runtime_s,num_expansion,num_generation,cmpchk,cmpupd,num_global_dominance_check,timed_out,exit_code
+Baseline,grid_10x10_d3_tradeoff,3,1626,4.175911,3.163,8533,61562,,,61562,False,0
+Vector,grid_10x10_d3_tradeoff,3,1626,19.136105,17.563,8533,61562,36612385,307212,61562,False,0
+Exponential,grid_10x10_d3_tradeoff,3,1626,15.693711,14.595,8533,61562,36612385,307212,61562,False,0

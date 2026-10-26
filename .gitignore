@@ -1,24 +1,26 @@
 build/
 build_shahaf/
-.vs/
-*.user
-*.log
 *.exe
+*.obj
+*.o
+*.pdb
+*.ilk
+*.log
 scratchpad/
-__pycache__/
-*.pyc
-
-# Temporary scratch outputs
-_apex_mvh.txt
-maya_sols.csv
+*.zip
+*.tar.gz
+*.sol
+v4_sols.csv
 v5_sols.csv
-~$*
 patch_kdtree.py
 unpatch_kdtree.py
 
-# Ignore bulk run outputs by default, but safeguard breakthrough archives
+# Ignore bulk run outputs by default, but safeguard breakthrough archives and master CSVs
 benchmarks/runs/*
 !benchmarks/runs/adaptive_explorer/
+!benchmarks/runs/*.csv
+!benchmarks/runs/*.md
+!benchmarks/runs/K_sweep_summary.md
 !benchmarks/runs/canonical_verified_raw.csv
 !benchmarks/runs/canonical_verified_summary.csv
 !benchmarks/runs/unconstrained_verified_progress.log

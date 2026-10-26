@@ -1,0 +1,4 @@
+timestamp,domain,instance,M,rho,eps,sols,exp,gen,reins,maya_time_s,fast_time_s,fast2_time_s,speedup_fast2_vs_maya,speedup_fast2_vs_fast,maya_cmp_ch,fast_cmpfull,fast2_cmpfull,cmpfull_reduction_pct,fast2_cmpchk,fast2_cmpupd,bit_identical,maya_status
+2026-10-01 02:21:57,GRID_APEX,grid_n7_m7_rho-0.4,7,-0.4,0.05,,,,,0.0478,0.0480,0.0676,0.71x,0.71x,,,,0.0%,,,FALSE,OK
+2026-10-01 02:21:57,GRID_APEX,grid_8x8_m8_rho-0.2,8,-0.2,0.05,,,,,0.0500,0.0482,0.0519,0.96x,0.93x,,,,0.0%,,,FALSE,OK
+2026-10-01 02:32:13,GRID_APEX,grid_n7_m7_rho-0.4,7,-0.4,0.05,49884,132959,173207,16889,420.3941,37.4167,30.4886,13.79x,1.23x,4723154986,288230927,37595701,87.0%,26939801,6439059,TRUE,OK
